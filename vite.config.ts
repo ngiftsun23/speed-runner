@@ -12,9 +12,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'Schulte Trainer',
-        short_name: 'Schulte',
-        description: 'Visual search training on Schulte tables, with Eyes mode and per-table history.',
+        name: 'Speed Runner',
+        short_name: 'Speed Runner',
+        description: 'Reading speed and concentration drills. Schulte tables, with Eyes mode and per-table history.',
         lang: 'en',
         theme_color: '#12141a',
         background_color: '#12141a',

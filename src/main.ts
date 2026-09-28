@@ -37,7 +37,7 @@ const FLASH_MS = 180
 /** Must match the grid gap in the stylesheet. */
 const GRID_GAP = 3
 
-const APP_NAME = 'Schulte Trainer'
+const APP_NAME = 'Speed Runner'
 
 type Tab = 'home' | 'practice' | 'stats' | 'profile'
 
@@ -179,12 +179,18 @@ function card(id: string, name: string, config: Config, accent: 'preset' | 'cust
 
 function practiceBody(): string {
   return `
-    <section class="group">
-      ${PRESETS.map((p) => card(p.id, p.name, p.config, 'preset')).join('')}
-    </section>
-    <section class="group">
-      ${card('custom', 'CUSTOM TABLE', custom, 'custom')}
-    </section>
+    <div class="drill">
+      <div class="drill__head">
+        <h2 class="drill__name">Schulte tables</h2>
+        <p class="drill__note">Visual search. Hold the centre, find the next number with the edges of your vision.</p>
+      </div>
+      <section class="group">
+        ${PRESETS.map((p) => card(p.id, p.name, p.config, 'preset')).join('')}
+      </section>
+      <section class="group">
+        ${card('custom', 'CUSTOM TABLE', custom, 'custom')}
+      </section>
+    </div>
   `
 }
 

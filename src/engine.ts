@@ -203,9 +203,18 @@ export function configKey(config: Config): string {
   ].join('/')
 }
 
+/**
+ * Strip the drill prefix from a stored key. Keys written before the app held
+ * more than one drill have no prefix, so they are returned unchanged.
+ */
+export function stripDrill(key: string): string {
+  const parts = key.split('/')
+  return parts.length > 6 ? parts.slice(1).join('/') : key
+}
+
 /** Rebuild a config from a stored key, for reading history back. */
 export function parseConfigKey(key: string): Config {
-  const [size, mode, order, shuffle, eyes, colour] = key.split('/')
+  const [size, mode, order, shuffle, eyes, colour] = stripDrill(key).split('/')
   const [cols, rows] = size.split('x').map(Number)
   return {
     cols,

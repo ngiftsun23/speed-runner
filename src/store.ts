@@ -20,8 +20,17 @@ export function loadResults(): Result[] {
   }
 }
 
+/**
+ * Results are keyed by drill as well as config, so a future drill's history
+ * cannot collide with Schulte's. Keys written before the app had more than one
+ * drill carry no prefix and are still read as Schulte's.
+ */
+export const SCHULTE = 'schulte'
+
+export const drillKey = (drill: string, config: Config): string => `${drill}/${configKey(config)}`
+
 export function saveResult(config: Config, seconds: number, errors: number): Result {
-  const result: Result = { at: Date.now(), key: configKey(config), seconds, errors }
+  const result: Result = { at: Date.now(), key: drillKey(SCHULTE, config), seconds, errors }
   try {
     const all = loadResults()
     all.push(result)
@@ -33,8 +42,9 @@ export function saveResult(config: Config, seconds: number, errors: number): Res
 }
 
 export function resultsFor(config: Config): Result[] {
-  const key = configKey(config)
-  return loadResults().filter((r) => r.key === key)
+  const key = drillKey(SCHULTE, config)
+  const legacy = configKey(config)
+  return loadResults().filter((r) => r.key === key || r.key === legacy)
 }
 
 /** Keep only results from the last `days`, or all of them when null. */
