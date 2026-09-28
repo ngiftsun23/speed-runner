@@ -74,9 +74,17 @@ button {
 
 .topbar h1 {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 650;
-  letter-spacing: -0.02em;
+  /* Cartoon title-card lettering for the app name only; the rest of the UI
+     stays neo-grotesque. */
+  font-family: 'Luckiest Guy', 'Inter Variable', Inter, sans-serif;
+  font-size: 1.55rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  color: var(--accent);
+  text-shadow:
+    2px 2px 0 var(--bg),
+    3px 3px 0 rgb(0 0 0 / 45%);
 }
 
 /* Large numerals get tighter tracking, the grotesque display convention. */
@@ -119,41 +127,15 @@ button {
 
 /* ---------------- home ---------------- */
 
-.art {
+.cover {
   display: block;
   width: 100%;
-  max-width: 300px;
+  max-width: 340px;
   height: auto;
-  margin: 4px auto 18px;
-}
-
-.art__body,
-.art__tail,
-.art__crest,
-.art__beak {
-  fill: var(--accent);
-}
-
-.art__tail,
-.art__crest {
-  fill: var(--custom);
-}
-
-.art__eye {
-  fill: var(--bg);
-}
-
-.art__legs {
-  stroke: var(--warm);
-  stroke-width: 4;
-  stroke-linecap: round;
-  fill: none;
-}
-
-.art__trail path {
-  stroke: var(--surface-edge);
-  stroke-width: 4;
-  stroke-linecap: round;
+  margin: 2px auto 20px;
+  border-radius: 8px;
+  /* The artwork is ink on paper, so it stays a light panel on the dark page. */
+  box-shadow: 0 10px 28px rgb(0 0 0 / 45%);
 }
 
 .lede {

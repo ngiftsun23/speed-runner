@@ -1,4 +1,5 @@
 import '@fontsource-variable/inter'
+import '@fontsource/luckiest-guy'
 import './style.css'
 import {
   centerIndex,
@@ -19,7 +20,7 @@ import {
 } from './engine'
 import { PRESETS, badgesFor } from './presets'
 import { EXERCISES } from './exercises'
-import { runnerArt } from './art'
+import { coverArt } from './art'
 import { timesChart } from './chart'
 import {
   loadCustomConfig,
@@ -450,7 +451,7 @@ function statsBody(): string {
 function homeBody(): string {
   const today = summarise(todayResultsFor(custom))
   return `
-    ${runnerArt()}
+    ${coverArt()}
     <h2 class="lede">Short daily drills for reading speed and concentration.</h2>
     <p class="body">
       Every exercise here trains one specific thing and times you at it, so you can
