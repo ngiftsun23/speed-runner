@@ -1,0 +1,681 @@
+import '@fontsource-variable/inter'
+import './style.css'
+import {
+  centerIndex,
+  cellCount,
+  confirmFound,
+  createRound,
+  currentTarget,
+  elapsedMs,
+  gorbovGroup,
+  isDone,
+  parseConfigKey,
+  playableCount,
+  sizeLabel,
+  slowestFind,
+  tapCell,
+  type Config,
+  type Round,
+} from './engine'
+import { PRESETS, badgesFor } from './presets'
+import { timesChart } from './chart'
+import {
+  loadCustomConfig,
+  loadResults,
+  resultsFor,
+  saveCustomConfig,
+  saveResult,
+  summarise,
+  todayResultsFor,
+  withinDays,
+  type Result,
+} from './store'
+
+const CELL_HUES = [8, 32, 128, 200, 265, 320]
+const GORBOV_HUES = [200, 8]
+const FLASH_MS = 180
+/** Must match the grid gap in the stylesheet. */
+const GRID_GAP = 3
+
+const APP_NAME = 'Schulte Trainer'
+
+type Tab = 'home' | 'practice' | 'stats' | 'profile'
+
+const app = document.querySelector<HTMLDivElement>('#app')!
+
+let tab: Tab = 'practice'
+let custom: Config = loadCustomConfig()
+let round: Round | null = null
+let activeName = ''
+let tickHandle = 0
+
+const fmt = (seconds: number, digits = 1) => seconds.toFixed(digits)
+const secs = (ms: number) => ms / 1000
+
+/* ---------------- icons ---------------- */
+
+const ICONS: Record<string, string> = {
+  home: '<path d="M3 10.5 12 3l9 7.5V21H3z"/>',
+  practice: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
+  stats: '<path d="M5 20V10M12 20V4M19 20v-7"/>',
+  profile: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>',
+  chart: '<path d="M4 19h16"/><path d="M7 19v-5M12 19V8M17 19v-8"/>',
+  sliders: '<path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2"/><circle cx="15" cy="16" r="2"/>',
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  restart: '<path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4h4"/>',
+}
+
+const icon = (name: string, size = 22) =>
+  `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor"
+    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`
+
+/* ---------------- shell ---------------- */
+
+const NAV: { id: Tab; label: string }[] = [
+  { id: 'home', label: 'Home' },
+  { id: 'practice', label: 'Practice' },
+  { id: 'stats', label: 'Stats' },
+  { id: 'profile', label: 'Profile' },
+]
+
+function renderTab(): void {
+  stopTick()
+  round = null
+  const body =
+    tab === 'practice'
+      ? practiceBody()
+      : tab === 'stats'
+        ? statsBody()
+        : tab === 'home'
+          ? homeBody()
+          : profileBody()
+
+  app.innerHTML = `
+    <div class="shell">
+      <header class="topbar"><h1>${APP_NAME}</h1></header>
+      <div class="scroll">${body}</div>
+      <nav class="nav">
+        ${NAV.map(
+          (item) => `
+          <button class="nav__item${item.id === tab ? ' is-active' : ''}" data-tab="${item.id}">
+            <span class="nav__icon">${icon(item.id)}</span>
+            <span class="nav__label">${item.label}</span>
+          </button>`,
+        ).join('')}
+      </nav>
+    </div>
+  `
+
+  app.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      tab = button.dataset.tab as Tab
+      renderTab()
+    })
+  })
+  wireTabBody()
+}
+
+function wireTabBody(): void {
+  app.querySelectorAll<HTMLElement>('[data-open]').forEach((element) => {
+    element.addEventListener('click', () => {
+      const id = element.dataset.open!
+      if (id === 'custom') return openDrill(custom, 'CUSTOM TABLE')
+      const found = PRESETS.find((p) => p.id === id)!
+      openDrill(found.config, found.name)
+    })
+  })
+  app.querySelector<HTMLButtonElement>('[data-settings]')?.addEventListener('click', (event) => {
+    event.stopPropagation()
+    renderCustomSettings()
+  })
+  app.querySelectorAll<HTMLElement>('[data-progress]').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation()
+      const id = button.dataset.progress!
+      const found = PRESETS.find((p) => p.id === id)
+      if (found) renderTableStats(found.config, found.name, renderTab)
+      else renderTableStats(custom, 'CUSTOM TABLE', renderTab)
+    })
+  })
+  app.querySelectorAll<HTMLElement>('[data-stats-key]').forEach((row) => {
+    row.addEventListener('click', () => {
+      const key = row.dataset.statsKey!
+      renderTableStats(parseConfigKey(key), labelForKey(key), renderTab)
+    })
+  })
+  app.querySelector<HTMLButtonElement>('#reset')?.addEventListener('click', () => {
+    if (!confirm('Delete all saved times?')) return
+    localStorage.removeItem('schulte.results.v1')
+    renderTab()
+  })
+}
+
+/* ---------------- practice ---------------- */
+
+const badgeRow = (config: Config) =>
+  badgesFor(config)
+    .map((b) => `<span class="badge">${b}</span>`)
+    .join('')
+
+function card(id: string, name: string, config: Config, accent: 'preset' | 'custom'): string {
+  const today = summarise(todayResultsFor(config))
+  const isCustom = accent === 'custom'
+  return `
+    <div class="card card--${accent}" data-open="${id}">
+      <div class="card__main">
+        <div class="card__head">
+          <p class="card__name">${name}</p>
+          <button class="card__icon" ${isCustom ? 'data-settings' : `data-progress="${id}"`}
+            aria-label="${isCustom ? 'Custom settings' : 'Progress'}">
+            ${icon(isCustom ? 'sliders' : 'chart', 22)}
+          </button>
+        </div>
+        <div class="card__badges">${badgeRow(config)}</div>
+        ${today ? `<p class="card__today">today ${today.count} · best ${fmt(today.best)}s</p>` : ''}
+      </div>
+    </div>
+  `
+}
+
+function practiceBody(): string {
+  return `
+    <section class="group">
+      ${PRESETS.map((p) => card(p.id, p.name, p.config, 'preset')).join('')}
+    </section>
+    <section class="group">
+      ${card('custom', 'CUSTOM TABLE', custom, 'custom')}
+    </section>
+  `
+}
+
+/* ---------------- custom settings ---------------- */
+
+function renderCustomSettings(): void {
+  const draft: Config = { ...custom }
+
+  const toggle = (key: 'shuffle' | 'eyes' | 'colored', label: string, note: string) => `
+    <button class="row row--toggle" data-toggle="${key}">
+      <span class="row__text"><span class="row__label">${label}</span><span class="row__note">${note}</span></span>
+      <span class="switch${draft[key] ? ' is-on' : ''}"></span>
+    </button>`
+
+  const draw = () => {
+    app.innerHTML = `
+      <div class="shell">
+        <header class="topbar topbar--back">
+          <button class="back" id="back">←</button><h1>Custom table</h1>
+        </header>
+        <div class="scroll">
+          <section class="group">
+            <div class="row">
+              <span class="row__text"><span class="row__label">Columns</span></span>
+              <span class="stepper">
+                <button data-step="cols:-1">−</button><b>${draft.cols}</b><button data-step="cols:1">+</button>
+              </span>
+            </div>
+            <div class="row">
+              <span class="row__text"><span class="row__label">Rows</span></span>
+              <span class="stepper">
+                <button data-step="rows:-1">−</button><b>${draft.rows}</b><button data-step="rows:1">+</button>
+              </span>
+            </div>
+            <div class="row">
+              <span class="row__text"><span class="row__label">Mode</span></span>
+              <span class="segmented">
+                <button data-mode="numeric" class="${draft.mode === 'numeric' ? 'is-on' : ''}">Numeric</button>
+                <button data-mode="letters" class="${draft.mode === 'letters' ? 'is-on' : ''}">Letters</button>
+              </span>
+            </div>
+            ${toggle('shuffle', 'Shuffle mode', 'Grid reshuffles after each find. Much harder.')}
+            ${toggle('eyes', 'Eyes mode', 'Confirm with a button instead of tapping the cell.')}
+            ${toggle('colored', 'Colored mode', 'Cells get different colours. Extra clutter.')}
+          </section>
+          <p class="note">${playableCount(draft)} numbers · shown as ${sizeLabel(draft)}</p>
+        </div>
+      </div>
+    `
+
+    app.querySelector<HTMLButtonElement>('#back')!.addEventListener('click', () => {
+      custom = draft
+      saveCustomConfig(custom)
+      renderTab()
+    })
+    app.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const [key, delta] = button.dataset.step!.split(':')
+        const next = draft[key as 'cols' | 'rows'] + Number(delta)
+        if (next < 2 || next > 10) return
+        draft[key as 'cols' | 'rows'] = next
+        if (draft.mode === 'letters' && cellCount(draft) > 26) draft.mode = 'numeric'
+        draw()
+      })
+    })
+    app.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const mode = button.dataset.mode as Config['mode']
+        if (mode === 'letters' && cellCount(draft) > 26) return
+        draft.mode = mode
+        draw()
+      })
+    })
+    app.querySelectorAll<HTMLButtonElement>('[data-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const key = button.dataset.toggle as 'shuffle' | 'eyes' | 'colored'
+        draft[key] = !draft[key]
+        draw()
+      })
+    })
+  }
+
+  draw()
+}
+
+/* ---------------- table statistics ---------------- */
+
+const RANGES: { label: string; days: number | null }[] = [
+  { label: 'Last 7 days', days: 7 },
+  { label: 'Last 30 days', days: 30 },
+  { label: 'Last 180 days', days: 180 },
+  { label: 'All time', days: null },
+]
+
+let rangeIndex = 0
+
+function renderTableStats(config: Config, name: string, back: () => void): void {
+  const draw = () => {
+    const all = resultsFor(config)
+    const inRange = withinDays(all, RANGES[rangeIndex].days)
+    const overall = summarise(all)
+    const ranged = summarise(inRange)
+
+    app.innerHTML = `
+      <div class="shell">
+        <header class="topbar topbar--back">
+          <button class="back" id="back">←</button><h1>Statistics</h1>
+        </header>
+        <div class="scroll">
+          <section class="hero">
+            <div class="hero__row">
+              <div>
+                <p class="hero__label">BEST TIME</p>
+                <p class="card__today">${name}</p>
+              </div>
+              <div class="hero__value">${overall ? fmt(overall.best) : '—'}</div>
+            </div>
+            <div class="card__badges hero__badges">${badgeRow(config)}</div>
+          </section>
+
+          <div class="chips">
+            ${RANGES.map(
+              (r, i) =>
+                `<button class="chip${i === rangeIndex ? ' is-on' : ''}" data-range="${i}">${r.label}</button>`,
+            ).join('')}
+          </div>
+
+          <section class="group">
+            <div class="stat stat--count">
+              <span class="stat__label">NUMBER OF<br />COMPLETED TABLES</span>
+              <span class="stat__value">${ranged ? ranged.count : 0}</span>
+            </div>
+            <div class="stat stat--avg">
+              <span class="stat__label">AVERAGE TIME</span>
+              <span class="stat__value">${ranged ? fmt(ranged.avg) : '—'}</span>
+            </div>
+          </section>
+
+          ${timesChart(inRange.map((r) => ({ at: r.at, seconds: r.seconds })))}
+        </div>
+      </div>
+    `
+
+    app.querySelector<HTMLButtonElement>('#back')!.addEventListener('click', back)
+    app.querySelectorAll<HTMLButtonElement>('[data-range]').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        rangeIndex = Number(chip.dataset.range)
+        draw()
+      })
+    })
+    wireChartTaps()
+  }
+
+  draw()
+}
+
+/** Tap a point to read its value; the two labelled points stay labelled. */
+function wireChartTaps(): void {
+  const figure = app.querySelector<HTMLElement>('.chart')
+  if (!figure) return
+  const readout = document.createElement('p')
+  readout.className = 'ch-readout'
+  readout.textContent = 'Tap a point to read its time'
+  figure.append(readout)
+  figure.querySelectorAll<SVGCircleElement>('.ch-dot').forEach((dot) => {
+    const show = () => {
+      figure.querySelectorAll('.ch-dot').forEach((d) => d.classList.remove('is-picked'))
+      dot.classList.add('is-picked')
+      readout.textContent = `${dot.dataset.value} · ${dot.dataset.date}`
+    }
+    dot.addEventListener('click', show)
+    dot.addEventListener('focus', show)
+  })
+}
+
+/* ---------------- stats ---------------- */
+
+/** Rebuild a readable label from a stored config key. */
+function labelForKey(key: string): string {
+  const [size, mode, order, shuffle, eyes, colour] = key.split('/')
+  const [cols, rows] = size.split('x').map(Number)
+  const bits = [`${rows} × ${cols}`]
+  if (mode === 'letters') bits.push('letters')
+  if (order !== 'sequential') bits.push(order)
+  if (shuffle === 'shuffle') bits.push('shuffle')
+  if (eyes === 'eyes') bits.push('eyes')
+  if (colour === 'color') bits.push('colour')
+  return bits.join(' · ')
+}
+
+function statsBody(): string {
+  const all = loadResults()
+  if (all.length === 0) return `<p class="note">No rounds yet.</p>`
+
+  const groups = new Map<string, Result[]>()
+  for (const result of all) {
+    const list = groups.get(result.key)
+    if (list) list.push(result)
+    else groups.set(result.key, [result])
+  }
+
+  return `<section class="group">${[...groups.entries()]
+    .map(([key, results]) => {
+      const summary = summarise(results)!
+      const recent = results.slice(-5).map((r) => fmt(r.seconds)).join(' · ')
+      return `
+        <div class="card card--flat" data-stats-key="${key}">
+          <div class="card__main">
+            <div class="card__head">
+              <p class="card__name card__name--small">${labelForKey(key)}</p>
+              <span class="card__icon">${icon('chart', 22)}</span>
+            </div>
+            <p class="card__today">${summary.count} rounds · best ${fmt(summary.best)}s · avg ${fmt(summary.avg)}s</p>
+            <p class="card__today">last: ${recent}</p>
+          </div>
+        </div>`
+    })
+    .join('')}</section>`
+}
+
+function homeBody(): string {
+  const today = summarise(todayResultsFor(custom))
+  return `
+    <section class="group">
+      <div class="card card--flat">
+        <div class="card__main">
+          <p class="card__name card__name--small">Today's session</p>
+          <p class="card__today">1 warm-up, untimed · 3 timed rounds · stop</p>
+          ${today ? `<p class="card__today">done: ${today.count} · best ${fmt(today.best)}s · avg ${fmt(today.avg)}s</p>` : `<p class="card__today">nothing logged yet</p>`}
+        </div>
+      </div>
+      ${card('custom', 'CUSTOM TABLE', custom, 'custom')}
+    </section>
+  `
+}
+
+function profileBody(): string {
+  return `
+    <section class="group">
+      <div class="card card--flat">
+        <div class="card__main">
+          <p class="card__name card__name--small">Saved on this device</p>
+          <p class="card__today">${loadResults().length} rounds</p>
+        </div>
+      </div>
+    </section>
+    <button class="ghost" id="reset">Delete all times</button>
+  `
+}
+
+/* ---------------- drill ---------------- */
+
+/**
+ * The drill screen. It opens in a ready state: empty grid, fixation dot, and
+ * START in the same slot the confirm button will occupy, so the button never
+ * moves once the round is running.
+ */
+function openDrill(config: Config, name: string): void {
+  stopTick()
+  round = null
+  activeName = name
+
+  app.innerHTML = `
+    <main class="screen">
+      <header class="bar">
+        <button class="bar__btn" id="quit" aria-label="Back to practice">${icon('back', 20)}</button>
+        <span class="target" id="target">${name}</span>
+        <span class="bar__right">
+          <span class="clock" id="clock">0.0</span>
+          <button class="bar__btn" id="restart" aria-label="Restart this grid">
+            ${icon('restart', 20)}
+          </button>
+        </span>
+      </header>
+      <div class="gridwrap">
+        <div class="grid" id="grid" style="--cols:${config.cols}"></div>
+        <div class="dot"></div>
+      </div>
+      <button class="primary confirm" id="action">START</button>
+      <p class="hint hint--bottom" id="hint">Fixate the dot, then press START</p>
+    </main>
+  `
+
+  const grid = app.querySelector<HTMLDivElement>('#grid')!
+  for (let i = 0; i < cellCount(config); i++) {
+    const cell = document.createElement('div')
+    cell.className = 'cell'
+    grid.append(cell)
+  }
+
+  placeDot(config)
+
+  const target = app.querySelector<HTMLElement>('#target')!
+  target.classList.add('target--name')
+
+  app.querySelector<HTMLButtonElement>('#quit')!.addEventListener('click', () => {
+    stopTick()
+    round = null
+    renderTab()
+  })
+  app.querySelector<HTMLButtonElement>('#restart')!.addEventListener('click', () => {
+    openDrill(config, name)
+  })
+  app
+    .querySelector<HTMLButtonElement>('#action')!
+    .addEventListener('click', () => beginRound(config))
+}
+
+/**
+ * Put the fixation dot on the nearest gridline intersection rather than the
+ * exact centre. With an odd number of columns or rows the centre falls inside
+ * a cell, where the dot would sit on top of a number.
+ */
+function placeDot(config: Config): void {
+  const wrap = app.querySelector<HTMLElement>('.gridwrap')
+  const grid = app.querySelector<HTMLElement>('#grid')
+  const dot = app.querySelector<HTMLElement>('.dot')
+  if (!wrap || !grid || !dot) return
+
+  // The number in the centre cell is its own fixation point.
+  dot.hidden = centerShowsTarget(config)
+
+  const apply = () => {
+    const wrapBox = wrap.getBoundingClientRect()
+    if (wrapBox.width === 0 || wrapBox.height === 0) return
+
+    // Square cells, sized so the whole grid fits the space it has. A tall grid
+    // such as the 6-row Large table is limited by height, not width.
+    const cell = Math.min(
+      (wrapBox.width - GRID_GAP * (config.cols - 1)) / config.cols,
+      (wrapBox.height - GRID_GAP * (config.rows - 1)) / config.rows,
+    )
+    if (cell <= 0) return
+    grid.style.width = `${cell * config.cols + GRID_GAP * (config.cols - 1)}px`
+    grid.style.setProperty('--cell', `${cell}px`)
+
+    // The grid is centred in the wrap, so the wrap's centre is the geometric
+    // centre of the grid rectangle. No nudging: this is the fixation point.
+    dot.style.left = `${wrapBox.width / 2}px`
+    dot.style.top = `${wrapBox.height / 2}px`
+  }
+
+  apply()
+  new ResizeObserver(apply).observe(wrap)
+}
+
+function beginRound(config: Config): void {
+  round = createRound(config)
+
+  const action = app.querySelector<HTMLButtonElement>('#action')!
+  const hint = app.querySelector<HTMLElement>('#hint')!
+  const target = app.querySelector<HTMLElement>('#target')!
+  const grid = app.querySelector<HTMLDivElement>('#grid')!
+
+  target.classList.remove('target--name')
+
+  // Nothing appears or disappears here: same elements, same heights, only the
+  // text changes, so the grid does not move when the round starts.
+  if (config.eyes) {
+    action.textContent = 'CONFIRM'
+    hint.textContent = 'Next number in mind before you confirm'
+    action.addEventListener('click', onConfirm)
+  } else {
+    action.textContent = 'TAP IN ORDER'
+    action.classList.add('is-static')
+    action.disabled = true
+    hint.textContent = 'Keep your gaze on the dot'
+    grid.addEventListener('click', (event) => {
+      const cell = (event.target as HTMLElement).closest('.cell')
+      if (!cell || !round) return
+      const position = Array.prototype.indexOf.call(grid.children, cell)
+      if (tapCell(round, position)) {
+        flash(position, 'found')
+        afterAdvance()
+      } else {
+        flash(position, 'wrong')
+      }
+    })
+  }
+
+  paintCells()
+  paintTarget()
+  startTick()
+}
+
+/** Colour a label consistently, so colour is never a cue after a reshuffle. */
+function hueFor(config: Config, label: string): number | null {
+  if (config.order === 'gorbov') return GORBOV_HUES[gorbovGroup(config, label)]
+  if (!config.colored) return null
+  return CELL_HUES[(label.charCodeAt(0) + label.length) % CELL_HUES.length]
+}
+
+function paintCells(): void {
+  const grid = app.querySelector<HTMLDivElement>('#grid')
+  if (!grid || !round) return
+  const config = round.config
+  round.cells.forEach((label, i) => {
+    const cell = grid.children[i] as HTMLElement
+    const isHole = label === null
+    // In random order the target cannot be worked out, so the reserved centre
+    // cell carries it: you read the next number without leaving fixation.
+    const showsTarget = isHole && centerShowsTarget(config)
+    cell.textContent = (showsTarget ? currentTarget(round!) : label) ?? ''
+    cell.classList.toggle('cell--hole', isHole && !showsTarget)
+    cell.classList.toggle('cell--center-target', showsTarget)
+    const hue = isHole ? null : hueFor(config, label)
+    cell.classList.toggle('cell--colored', hue !== null)
+    if (hue !== null) cell.style.setProperty('--hue', String(hue))
+  })
+}
+
+const centerShowsTarget = (config: Config): boolean =>
+  config.order === 'random' && centerIndex(config) !== -1
+
+function paintTarget(): void {
+  const el = app.querySelector<HTMLElement>('#target')
+  if (!el || !round) return
+  const target = currentTarget(round)
+  el.textContent = target ?? '✓'
+  const hue = target === null ? null : hueFor(round.config, target)
+  el.style.color = hue === null ? '' : `hsl(${hue} 70% 68%)`
+}
+
+function onConfirm(): void {
+  if (!round) return
+  flash(confirmFound(round), 'found')
+  afterAdvance()
+}
+
+function afterAdvance(): void {
+  if (!round) return
+  if (isDone(round)) return finish()
+  if (round.config.shuffle || centerShowsTarget(round.config)) paintCells()
+  paintTarget()
+}
+
+function flash(position: number, kind: 'found' | 'wrong'): void {
+  const grid = app.querySelector<HTMLDivElement>('#grid')
+  const cell = grid?.children[position] as HTMLElement | undefined
+  if (!cell) return
+  cell.classList.add(`cell--${kind}`)
+  setTimeout(() => cell.classList.remove(`cell--${kind}`), FLASH_MS)
+}
+
+function startTick(): void {
+  const clock = app.querySelector<HTMLElement>('#clock')
+  const step = () => {
+    if (!round || !clock) return
+    clock.textContent = fmt(secs(elapsedMs(round)))
+    tickHandle = requestAnimationFrame(step)
+  }
+  tickHandle = requestAnimationFrame(step)
+}
+
+function stopTick(): void {
+  if (tickHandle) cancelAnimationFrame(tickHandle)
+  tickHandle = 0
+}
+
+function finish(): void {
+  stopTick()
+  if (!round) return
+  const finished = round
+  const total = secs(elapsedMs(finished))
+  const worst = slowestFind(finished)
+  saveResult(finished.config, total, finished.errors)
+  const today = summarise(todayResultsFor(finished.config))
+  round = null
+
+  app.innerHTML = `
+    <main class="screen screen--center">
+      <p class="eyebrow">${activeName}</p>
+      <h1 class="title">${fmt(total)}s</h1>
+      ${worst === -1 ? '' : `<p class="meta">slowest find: ${finished.sequence[worst]} — ${fmt(secs(finished.splits[worst]))}s</p>`}
+      ${finished.errors > 0 ? `<p class="meta">${finished.errors} wrong tap${finished.errors === 1 ? '' : 's'}</p>` : ''}
+      ${today ? `<p class="meta">today: ${today.count} · best ${fmt(today.best)}s · avg ${fmt(today.avg)}s</p>` : ''}
+      <button class="primary" id="again">NEXT ROUND</button>
+      <button class="ghost" id="done">Done</button>
+    </main>
+  `
+  app
+    .querySelector<HTMLButtonElement>('#again')!
+    .addEventListener('click', () => openDrill(finished.config, activeName))
+  app.querySelector<HTMLButtonElement>('#done')!.addEventListener('click', renderTab)
+}
+
+// Space confirms, for checking it on a desktop keyboard.
+window.addEventListener('keydown', (event) => {
+  if (event.code !== 'Space') return
+  event.preventDefault()
+  if (round?.config.eyes) onConfirm()
+})
+
+renderTab()
