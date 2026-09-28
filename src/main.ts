@@ -488,9 +488,13 @@ function openDrill(config: Config, name: string): void {
   app.querySelector<HTMLButtonElement>('#restart')!.addEventListener('click', () => {
     openDrill(config, name)
   })
-  app
-    .querySelector<HTMLButtonElement>('#action')!
-    .addEventListener('click', () => beginRound(config))
+  // One handler for the life of the screen. The button is START before a round
+  // exists and CONFIRM afterwards; adding a second listener on start would
+  // leave the first one live, restarting the round on every confirm.
+  app.querySelector<HTMLButtonElement>('#action')!.addEventListener('click', () => {
+    if (round) onConfirm()
+    else beginRound(config)
+  })
 }
 
 /**
@@ -546,7 +550,6 @@ function beginRound(config: Config): void {
   if (config.eyes) {
     action.textContent = 'CONFIRM'
     hint.textContent = 'Next number in mind before you confirm'
-    action.addEventListener('click', onConfirm)
   } else {
     action.textContent = 'TAP IN ORDER'
     action.classList.add('is-static')
