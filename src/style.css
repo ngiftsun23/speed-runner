@@ -117,6 +117,147 @@ button {
   text-align: center;
 }
 
+/* ---------------- home ---------------- */
+
+.art {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  margin: 4px auto 18px;
+}
+
+.art__body,
+.art__tail,
+.art__crest,
+.art__beak {
+  fill: var(--accent);
+}
+
+.art__tail,
+.art__crest {
+  fill: var(--custom);
+}
+
+.art__eye {
+  fill: var(--bg);
+}
+
+.art__legs {
+  stroke: var(--warm);
+  stroke-width: 4;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.art__trail path {
+  stroke: var(--surface-edge);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.lede {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+}
+
+.body {
+  margin: 0 0 18px;
+  color: var(--ink-dim);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.section {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.bullets {
+  margin: 0 0 18px;
+  padding-left: 18px;
+  color: var(--ink-dim);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.bullets li {
+  margin-bottom: 6px;
+}
+
+.bullets b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.footnote {
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--surface-edge);
+  color: var(--ink-dim);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+/* ---------------- exercise tiles ---------------- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 12px;
+  border: 1px solid var(--surface-edge);
+  border-radius: 12px;
+  background: var(--panel);
+  text-align: center;
+}
+
+.tile__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tile__name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.tile__note {
+  color: var(--ink-dim);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.tile.is-soon {
+  opacity: 0.55;
+}
+
+.tile.is-soon .tile__icon {
+  background: var(--surface);
+  color: var(--ink-dim);
+}
+
 /* ---------------- drill sections ---------------- */
 
 .drill__head {

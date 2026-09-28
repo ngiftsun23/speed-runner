@@ -18,6 +18,8 @@ import {
   type Round,
 } from './engine'
 import { PRESETS, badgesFor } from './presets'
+import { EXERCISES } from './exercises'
+import { runnerArt } from './art'
 import { timesChart } from './chart'
 import {
   loadCustomConfig,
@@ -63,6 +65,12 @@ const ICONS: Record<string, string> = {
   sliders: '<path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2"/><circle cx="15" cy="16" r="2"/>',
   back: '<path d="M15 5l-7 7 7 7"/>',
   restart: '<path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4h4"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  eye: '<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.5"/>',
+  flash: '<path d="M13 2 4 14h6l-1 8 9-12h-6z"/>',
+  columns: '<rect x="3" y="4" width="4" height="16" rx="1"/><rect x="10" y="4" width="4" height="16" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/>',
+  dot: '<circle cx="12" cy="12" r="3"/><path d="M3 6h5M16 6h5M3 18h5M16 18h5"/>',
+  palette: '<circle cx="12" cy="12" r="9"/><circle cx="9" cy="9" r="1.4"/><circle cx="15" cy="9" r="1.4"/><circle cx="9" cy="15" r="1.4"/><circle cx="15" cy="15" r="1.4"/>',
 }
 
 const icon = (name: string, size = 22) =>
@@ -116,6 +124,11 @@ function renderTab(): void {
 }
 
 function wireTabBody(): void {
+  app.querySelectorAll<HTMLElement>('[data-exercise]').forEach((tile) => {
+    tile.addEventListener('click', () => {
+      if (tile.dataset.exercise === 'schulte') renderSchulte()
+    })
+  })
   app.querySelectorAll<HTMLElement>('[data-open]').forEach((element) => {
     element.addEventListener('click', () => {
       const id = element.dataset.open!
@@ -179,19 +192,42 @@ function card(id: string, name: string, config: Config, accent: 'preset' | 'cust
 
 function practiceBody(): string {
   return `
-    <div class="drill">
-      <div class="drill__head">
-        <h2 class="drill__name">Schulte tables</h2>
-        <p class="drill__note">Visual search. Hold the centre, find the next number with the edges of your vision.</p>
-      </div>
-      <section class="group">
-        ${PRESETS.map((p) => card(p.id, p.name, p.config, 'preset')).join('')}
-      </section>
-      <section class="group">
-        ${card('custom', 'CUSTOM TABLE', custom, 'custom')}
-      </section>
+    <h2 class="section">Exercises</h2>
+    <div class="tiles">
+      ${EXERCISES.map(
+        (e) => `
+        <button class="tile${e.status === 'soon' ? ' is-soon' : ''}"
+          data-exercise="${e.id}" ${e.status === 'soon' ? 'disabled' : ''}>
+          <span class="tile__icon">${icon(e.icon, 26)}</span>
+          <span class="tile__name">${e.name}</span>
+          <span class="tile__note">${e.status === 'ready' ? e.trains : 'Not built yet'}</span>
+        </button>`,
+      ).join('')}
     </div>
   `
+}
+
+/** The Schulte drill's own screen: its presets, then the custom table. */
+function renderSchulte(): void {
+  app.innerHTML = `
+    <div class="shell">
+      <header class="topbar topbar--back">
+        <button class="back" id="back">←</button><h1>Schulte tables</h1>
+      </header>
+      <div class="scroll">
+        <p class="drill__note">Hold the centre of the grid and find the next number with the edges of your vision. Finish every grid.</p>
+        <section class="group">
+          ${PRESETS.map((p) => card(p.id, p.name, p.config, 'preset')).join('')}
+        </section>
+        <h2 class="section">Your table</h2>
+        <section class="group">
+          ${card('custom', 'CUSTOM TABLE', custom, 'custom')}
+        </section>
+      </div>
+    </div>
+  `
+  app.querySelector<HTMLButtonElement>('#back')!.addEventListener('click', renderTab)
+  wireTabBody()
 }
 
 /* ---------------- custom settings ---------------- */
@@ -414,16 +450,42 @@ function statsBody(): string {
 function homeBody(): string {
   const today = summarise(todayResultsFor(custom))
   return `
+    ${runnerArt()}
+    <h2 class="lede">Short daily drills for reading speed and concentration.</h2>
+    <p class="body">
+      Every exercise here trains one specific thing and times you at it, so you can
+      see whether you are actually getting faster rather than guessing.
+    </p>
+
+    <h2 class="section">What you are training</h2>
+    <ul class="bullets">
+      <li><b>Visual search</b> — finding a target in a cluttered field without hunting row by row.</li>
+      <li><b>Holding fixation</b> — keeping your eyes still while taking in what sits around them.</li>
+      <li><b>Pace</b> — moving forward through text without stopping to re-read.</li>
+      <li><b>Concentration</b> — staying on the task while something competes for your attention.</li>
+    </ul>
+
+    <h2 class="section">How to use it</h2>
+    <p class="body">
+      Five to eight minutes is a session: one warm-up you ignore, three timed rounds,
+      then stop. Change one setting at a time, and only once the current one feels
+      comfortable. Finish every grid you start.
+    </p>
+
     <section class="group">
       <div class="card card--flat">
         <div class="card__main">
-          <p class="card__name card__name--small">Today's session</p>
-          <p class="card__today">1 warm-up, untimed · 3 timed rounds · stop</p>
-          ${today ? `<p class="card__today">done: ${today.count} · best ${fmt(today.best)}s · avg ${fmt(today.avg)}s</p>` : `<p class="card__today">nothing logged yet</p>`}
+          <p class="card__name card__name--small">Today</p>
+          ${today ? `<p class="card__today">${today.count} rounds · best ${fmt(today.best)}s · avg ${fmt(today.avg)}s on your custom table</p>` : `<p class="card__today">Nothing logged yet.</p>`}
         </div>
       </div>
-      ${card('custom', 'CUSTOM TABLE', custom, 'custom')}
     </section>
+
+    <p class="footnote">
+      These drills make you better at the drills. How much that carries over to
+      ordinary reading is modest and varies by person — the timer is honest about
+      the exercise, not about your reading speed.
+    </p>
   `
 }
 
