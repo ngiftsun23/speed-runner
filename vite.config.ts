@@ -2,6 +2,11 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  preview: {
+    // Quick tunnels get a random subdomain; allow the family so the built app
+    // can be opened over HTTPS on a phone without editing this each time.
+    allowedHosts: ['.trycloudflare.com'],
+  },
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
