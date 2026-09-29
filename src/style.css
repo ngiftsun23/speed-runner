@@ -240,6 +240,40 @@ button {
   color: var(--ink-dim);
 }
 
+/* ---------------- field of vision ---------------- */
+
+.progress {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.progress__fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+/* Background clutter sits back; the field cells are where the work happens. */
+.cell--quiet {
+  border-color: transparent;
+  background: none;
+  color: var(--ink);
+}
+
+.cell--field {
+  color: var(--ink-dim);
+  background: var(--accent-soft);
+  border-radius: 4px;
+}
+
+.primary.is-pressed {
+  background: var(--found);
+}
+
 /* ---------------- drill sections ---------------- */
 
 .drill__head {

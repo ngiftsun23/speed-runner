@@ -20,6 +20,21 @@ import {
 } from './engine'
 import { PRESETS, badgesFor } from './presets'
 import { EXERCISES } from './exercises'
+import {
+  FOV_DEFAULT,
+  FOV_PRESETS,
+  correctCount,
+  createTrial,
+  emptyScore,
+  fieldPositions,
+  fillerLetters,
+  fovCellCount,
+  fovCenter,
+  fovKey,
+  fovLabel,
+  scoreTrial,
+  type FovConfig,
+} from './fov'
 import { coverArt } from './art'
 import { timesChart } from './chart'
 import {
@@ -28,6 +43,10 @@ import {
   resultsFor,
   saveCustomConfig,
   saveResult,
+  loadStored,
+  resultsForKey,
+  saveKeyedResult,
+  saveStored,
   summarise,
   todayResultsFor,
   withinDays,
@@ -127,7 +146,9 @@ function renderTab(): void {
 function wireTabBody(): void {
   app.querySelectorAll<HTMLElement>('[data-exercise]').forEach((tile) => {
     tile.addEventListener('click', () => {
-      if (tile.dataset.exercise === 'schulte') renderSchulte()
+      const id = tile.dataset.exercise
+      if (id === 'schulte') renderSchulte()
+      else if (id === 'field') renderFovList()
     })
   })
   app.querySelectorAll<HTMLElement>('[data-open]').forEach((element) => {
@@ -544,7 +565,7 @@ function openDrill(config: Config, name: string): void {
     grid.append(cell)
   }
 
-  placeDot(config)
+  placeDot(config.cols, config.rows, !centerShowsTarget(config))
 
   const target = app.querySelector<HTMLElement>('#target')!
   target.classList.add('target--name')
@@ -571,14 +592,14 @@ function openDrill(config: Config, name: string): void {
  * exact centre. With an odd number of columns or rows the centre falls inside
  * a cell, where the dot would sit on top of a number.
  */
-function placeDot(config: Config): void {
+function placeDot(cols: number, rows: number, showDot: boolean): void {
   const wrap = app.querySelector<HTMLElement>('.gridwrap')
   const grid = app.querySelector<HTMLElement>('#grid')
   const dot = app.querySelector<HTMLElement>('.dot')
   if (!wrap || !grid || !dot) return
 
-  // The number in the centre cell is its own fixation point.
-  dot.hidden = centerShowsTarget(config)
+  // A grid that carries its own centre marker hides the separate dot.
+  dot.hidden = !showDot
 
   const apply = () => {
     const wrapBox = wrap.getBoundingClientRect()
@@ -587,11 +608,11 @@ function placeDot(config: Config): void {
     // Square cells, sized so the whole grid fits the space it has. A tall grid
     // such as the 6-row Large table is limited by height, not width.
     const cell = Math.min(
-      (wrapBox.width - GRID_GAP * (config.cols - 1)) / config.cols,
-      (wrapBox.height - GRID_GAP * (config.rows - 1)) / config.rows,
+      (wrapBox.width - GRID_GAP * (cols - 1)) / cols,
+      (wrapBox.height - GRID_GAP * (rows - 1)) / rows,
     )
     if (cell <= 0) return
-    grid.style.width = `${cell * config.cols + GRID_GAP * (config.cols - 1)}px`
+    grid.style.width = `${cell * cols + GRID_GAP * (cols - 1)}px`
     grid.style.setProperty('--cell', `${cell}px`)
 
     // The grid is centred in the wrap, so the wrap's centre is the geometric
@@ -741,6 +762,272 @@ function finish(): void {
     .querySelector<HTMLButtonElement>('#again')!
     .addEventListener('click', () => openDrill(finished.config, activeName))
   app.querySelector<HTMLButtonElement>('#done')!.addEventListener('click', renderTab)
+}
+
+
+/* ---------------- field of vision ---------------- */
+
+let fovCustom: FovConfig = loadStored<FovConfig>({ ...FOV_DEFAULT })
+let fovTimer = 0
+
+const clearFovTimer = () => {
+  if (fovTimer) clearTimeout(fovTimer)
+  fovTimer = 0
+}
+
+function fovCard(id: string, name: string, config: FovConfig, accent: 'preset' | 'custom'): string {
+  const best = resultsForKey(fovKey(config)).reduce<number | null>(
+    (b, r) => (r.score === undefined ? b : b === null || r.score > b ? r.score : b),
+    null,
+  )
+  const isCustom = accent === 'custom'
+  return `
+    <div class="card card--${accent}" data-fov-open="${id}">
+      <div class="card__main">
+        <div class="card__head">
+          <p class="card__name">${name}</p>
+          ${isCustom ? `<button class="card__icon" data-fov-settings aria-label="Settings">${icon('sliders', 22)}</button>` : ''}
+        </div>
+        <div class="card__badges">
+          <span class="badge">${config.rows} × ${config.cols}</span>
+          <span class="badge">${config.field}</span>
+          <span class="badge">${config.flashMs}ms</span>
+          <span class="badge">${config.trials} trials</span>
+        </div>
+        ${best === null ? '' : `<p class="card__today">best ${best}/${config.trials}</p>`}
+      </div>
+    </div>`
+}
+
+function renderFovList(): void {
+  app.innerHTML = `
+    <div class="shell">
+      <header class="topbar topbar--back">
+        <button class="back" id="back">←</button><h1>Field of vision</h1>
+      </header>
+      <div class="scroll">
+        <p class="drill__note">
+          Hold the centre dot. Letters flash at the edges of the grid — if one of them
+          does not match the others, press MISTAKE. Half the trials contain a mismatch,
+          and pressing when there is none counts against you.
+        </p>
+        <section class="group">
+          ${FOV_PRESETS.map((p) => fovCard(p.id, p.name, p.config, 'preset')).join('')}
+        </section>
+        <h2 class="section">Your field</h2>
+        <section class="group">${fovCard('custom', 'CUSTOM FIELD', fovCustom, 'custom')}</section>
+      </div>
+    </div>`
+
+  app.querySelector<HTMLButtonElement>('#back')!.addEventListener('click', renderTab)
+  app.querySelectorAll<HTMLElement>('[data-fov-open]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.fovOpen!
+      if (id === 'custom') return openFov(fovCustom, 'CUSTOM FIELD')
+      const found = FOV_PRESETS.find((p) => p.id === id)!
+      openFov(found.config, found.name)
+    })
+  })
+  app.querySelector<HTMLElement>('[data-fov-settings]')?.addEventListener('click', (event) => {
+    event.stopPropagation()
+    renderFovSettings()
+  })
+}
+
+function renderFovSettings(): void {
+  const draft: FovConfig = { ...fovCustom }
+  const ODD = [3, 5, 7, 9]
+  const FLASH = [600, 400, 300, 200, 150]
+
+  const draw = () => {
+    app.innerHTML = `
+      <div class="shell">
+        <header class="topbar topbar--back">
+          <button class="back" id="back">←</button><h1>Custom field</h1>
+        </header>
+        <div class="scroll">
+          <section class="group">
+            <div class="row">
+              <span class="row__text"><span class="row__label">Rows</span></span>
+              <span class="segmented">
+                ${ODD.map((n) => `<button data-rows="${n}" class="${draft.rows === n ? 'is-on' : ''}">${n}</button>`).join('')}
+              </span>
+            </div>
+            <div class="row">
+              <span class="row__text"><span class="row__label">Columns</span></span>
+              <span class="segmented">
+                ${ODD.map((n) => `<button data-cols="${n}" class="${draft.cols === n ? 'is-on' : ''}">${n}</button>`).join('')}
+              </span>
+            </div>
+            <div class="row">
+              <span class="row__text">
+                <span class="row__label">Field type</span>
+                <span class="row__note">Cross uses the middle of each edge. Extended adds the corners.</span>
+              </span>
+              <span class="segmented">
+                <button data-field="cross" class="${draft.field === 'cross' ? 'is-on' : ''}">Cross</button>
+                <button data-field="extended" class="${draft.field === 'extended' ? 'is-on' : ''}">Extended</button>
+              </span>
+            </div>
+            <div class="row">
+              <span class="row__text">
+                <span class="row__label">Flash time</span>
+                <span class="row__note">How long the letters stay up.</span>
+              </span>
+              <span class="segmented">
+                ${FLASH.map((n) => `<button data-flash="${n}" class="${draft.flashMs === n ? 'is-on' : ''}">${n}</button>`).join('')}
+              </span>
+            </div>
+          </section>
+          <p class="note">Only odd sizes: a cross needs a true centre row and column.</p>
+        </div>
+      </div>`
+
+    app.querySelector<HTMLButtonElement>('#back')!.addEventListener('click', () => {
+      fovCustom = draft
+      saveStored(fovCustom)
+      renderFovList()
+    })
+    const pick = (attr: string, apply: (value: string) => void) =>
+      app.querySelectorAll<HTMLElement>(`[data-${attr}]`).forEach((b) =>
+        b.addEventListener('click', () => {
+          apply(b.dataset[attr]!)
+          draw()
+        }),
+      )
+    pick('rows', (v) => (draft.rows = Number(v)))
+    pick('cols', (v) => (draft.cols = Number(v)))
+    pick('field', (v) => (draft.field = v as FovConfig['field']))
+    pick('flash', (v) => (draft.flashMs = Number(v)))
+  }
+
+  draw()
+}
+
+function openFov(config: FovConfig, name: string): void {
+  clearFovTimer()
+  const filler = fillerLetters(config)
+  const field = fieldPositions(config)
+  const centre = fovCenter(config)
+  const score = emptyScore()
+  let trialIndex = 0
+  let responded = false
+  let running = false
+
+  app.innerHTML = `
+    <main class="screen">
+      <header class="bar">
+        <button class="bar__btn" id="quit" aria-label="Back">${icon('back', 20)}</button>
+        <span class="target target--name">${name}</span>
+        <span class="bar__right">
+          <span class="clock" id="progress">0/${config.trials}</span>
+        </span>
+      </header>
+      <div class="progress"><span class="progress__fill" id="fill"></span></div>
+      <div class="gridwrap">
+        <div class="grid" id="grid" style="--cols:${config.cols}"></div>
+        <div class="dot" hidden></div>
+      </div>
+      <button class="primary confirm" id="action">START</button>
+      <p class="hint hint--bottom" id="hint">Fixate the centre dot, then press START</p>
+    </main>`
+
+  const grid = app.querySelector<HTMLDivElement>('#grid')!
+  for (let i = 0; i < fovCellCount(config); i++) {
+    const cell = document.createElement('div')
+    cell.className = 'cell cell--quiet'
+    if (i === centre) {
+      cell.classList.add('cell--hole')
+      cell.textContent = '·'
+    } else if (field.includes(i)) {
+      cell.classList.add('cell--field')
+      cell.textContent = '·'
+    } else {
+      cell.textContent = filler[i] ?? ''
+    }
+    grid.append(cell)
+  }
+  placeDot(config.cols, config.rows, false)
+
+  const action = app.querySelector<HTMLButtonElement>('#action')!
+  const hint = app.querySelector<HTMLElement>('#hint')!
+  const progress = app.querySelector<HTMLElement>('#progress')!
+  const fill = app.querySelector<HTMLElement>('#fill')!
+
+  const showField = (letters: Map<number, string> | null) => {
+    field.forEach((i) => {
+      const cell = grid.children[i] as HTMLElement
+      cell.textContent = letters?.get(i) ?? '·'
+      cell.classList.toggle('cell--field', letters === null)
+    })
+  }
+
+  const endTrial = (hasMismatch: boolean) => {
+    scoreTrial(score, hasMismatch, responded)
+    trialIndex++
+    progress.textContent = `${trialIndex}/${config.trials}`
+    fill.style.width = `${(trialIndex / config.trials) * 100}%`
+    if (trialIndex >= config.trials) return finishFov(config, name, score)
+    fovTimer = window.setTimeout(nextTrial, 200)
+  }
+
+  const nextTrial = () => {
+    // The response window runs through the flash and the blank after it, so a
+    // late tap still counts — what matters is noticing, not reflex speed.
+    responded = false
+    const trial = createTrial(config)
+    showField(trial.letters)
+    fovTimer = window.setTimeout(() => {
+      showField(null)
+      fovTimer = window.setTimeout(() => endTrial(trial.hasMismatch), config.gapMs)
+    }, config.flashMs)
+  }
+
+  action.addEventListener('click', () => {
+    if (!running) {
+      running = true
+      action.textContent = 'MISTAKE'
+      hint.textContent = 'Press when one letter does not match'
+      nextTrial()
+      return
+    }
+    responded = true
+    action.classList.add('is-pressed')
+    setTimeout(() => action.classList.remove('is-pressed'), 120)
+  })
+
+  app.querySelector<HTMLButtonElement>('#quit')!.addEventListener('click', () => {
+    clearFovTimer()
+    renderFovList()
+  })
+}
+
+function finishFov(config: FovConfig, name: string, score: ReturnType<typeof emptyScore>): void {
+  clearFovTimer()
+  const correct = correctCount(score)
+  saveKeyedResult(fovKey(config), {
+    seconds: 0,
+    errors: score.misses + score.falseAlarms,
+    score: correct,
+    trials: config.trials,
+  })
+  const best = resultsForKey(fovKey(config)).reduce(
+    (b, r) => (r.score !== undefined && r.score > b ? r.score : b),
+    0,
+  )
+
+  app.innerHTML = `
+    <main class="screen screen--center">
+      <p class="eyebrow">${name}</p>
+      <h1 class="title">${correct}/${config.trials}</h1>
+      <p class="meta">${fovLabel(config)}</p>
+      <p class="meta">${score.hits} caught · ${score.misses} missed · ${score.falseAlarms} false</p>
+      <p class="meta">best ${best}/${config.trials}</p>
+      <button class="primary" id="again">NEXT ROUND</button>
+      <button class="ghost" id="done">Done</button>
+    </main>`
+  app.querySelector<HTMLButtonElement>('#again')!.addEventListener('click', () => openFov(config, name))
+  app.querySelector<HTMLButtonElement>('#done')!.addEventListener('click', renderFovList)
 }
 
 // Space confirms, for checking it on a desktop keyboard.

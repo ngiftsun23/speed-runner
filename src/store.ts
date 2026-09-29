@@ -5,6 +5,9 @@ export interface Result {
   key: string
   seconds: number
   errors: number
+  /** Drills scored by correctness rather than time record it here. */
+  score?: number
+  trials?: number
 }
 
 const STORAGE_KEY = 'schulte.results.v1'
@@ -39,6 +42,21 @@ export function saveResult(config: Config, seconds: number, errors: number): Res
     // Private mode or blocked storage: the round still counts, it just is not kept.
   }
   return result
+}
+
+/** Append a result under an arbitrary drill key. */
+export function saveKeyedResult(key: string, result: Omit<Result, 'at' | 'key'>): void {
+  try {
+    const all = loadResults()
+    all.push({ at: Date.now(), key, ...result })
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(all))
+  } catch {
+    // Storage blocked: the round still counts, it just is not kept.
+  }
+}
+
+export function resultsForKey(key: string): Result[] {
+  return loadResults().filter((r) => r.key === key)
 }
 
 export function resultsFor(config: Config): Result[] {
@@ -77,6 +95,25 @@ export function saveCustomConfig(config: Config): void {
     localStorage.setItem(CUSTOM_KEY, JSON.stringify(config))
   } catch {
     // Storage blocked: the config still applies for this session.
+  }
+}
+
+const FOV_KEY = 'speedrunner.fov.v1'
+
+export function loadStored<T>(fallback: T): T {
+  try {
+    const raw = localStorage.getItem(FOV_KEY)
+    return raw ? { ...fallback, ...(JSON.parse(raw) as Partial<T>) } : fallback
+  } catch {
+    return fallback
+  }
+}
+
+export function saveStored<T>(value: T): void {
+  try {
+    localStorage.setItem(FOV_KEY, JSON.stringify(value))
+  } catch {
+    // Storage blocked: the setting still applies for this session.
   }
 }
 

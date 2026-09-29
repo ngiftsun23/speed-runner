@@ -27,7 +27,7 @@ export const EXERCISES: Exercise[] = [
     name: 'Field of vision',
     trains: 'Reading characters away from fixation',
     icon: 'eye',
-    status: 'soon',
+    status: 'ready',
   },
   {
     id: 'rsvp',
