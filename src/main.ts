@@ -35,6 +35,19 @@ import {
   scoreTrial,
   type FovConfig,
 } from './fov'
+import {
+  RW_DEFAULT,
+  RW_PRESETS,
+  WPM_FLOOR,
+  WPM_STEP,
+  createRwRound,
+  intervalMs,
+  recallChoices,
+  rwKey,
+  rwLabel,
+  slotCount,
+  type RwConfig,
+} from './runningWords'
 import { coverArt } from './art'
 import { timesChart } from './chart'
 import {
@@ -149,6 +162,7 @@ function wireTabBody(): void {
       const id = tile.dataset.exercise
       if (id === 'schulte') renderSchulte()
       else if (id === 'field') renderFovList()
+      else if (id === 'rsvp') renderRwList()
     })
   })
   app.querySelectorAll<HTMLElement>('[data-open]').forEach((element) => {
@@ -767,7 +781,8 @@ function finish(): void {
 
 /* ---------------- field of vision ---------------- */
 
-let fovCustom: FovConfig = loadStored<FovConfig>({ ...FOV_DEFAULT })
+const FOV_STORE = 'speedrunner.fov.v1'
+let fovCustom: FovConfig = loadStored<FovConfig>(FOV_STORE, { ...FOV_DEFAULT })
 let fovTimer = 0
 
 const clearFovTimer = () => {
@@ -847,19 +862,19 @@ function renderFovSettings(): void {
         </header>
         <div class="scroll">
           <section class="group">
-            <div class="row">
+            <div class="row row--stack">
               <span class="row__text"><span class="row__label">Rows</span></span>
               <span class="segmented">
                 ${ODD.map((n) => `<button data-rows="${n}" class="${draft.rows === n ? 'is-on' : ''}">${n}</button>`).join('')}
               </span>
             </div>
-            <div class="row">
+            <div class="row row--stack">
               <span class="row__text"><span class="row__label">Columns</span></span>
               <span class="segmented">
                 ${ODD.map((n) => `<button data-cols="${n}" class="${draft.cols === n ? 'is-on' : ''}">${n}</button>`).join('')}
               </span>
             </div>
-            <div class="row">
+            <div class="row row--stack">
               <span class="row__text">
                 <span class="row__label">Field type</span>
                 <span class="row__note">Cross uses the middle of each edge. Extended adds the corners.</span>
@@ -869,7 +884,7 @@ function renderFovSettings(): void {
                 <button data-field="extended" class="${draft.field === 'extended' ? 'is-on' : ''}">Extended</button>
               </span>
             </div>
-            <div class="row">
+            <div class="row row--stack">
               <span class="row__text">
                 <span class="row__label">Flash time</span>
                 <span class="row__note">How long the letters stay up.</span>
@@ -885,7 +900,7 @@ function renderFovSettings(): void {
 
     app.querySelector<HTMLButtonElement>('#back')!.addEventListener('click', () => {
       fovCustom = draft
-      saveStored(fovCustom)
+      saveStored(FOV_STORE, fovCustom)
       renderFovList()
     })
     const pick = (attr: string, apply: (value: string) => void) =>
@@ -1028,6 +1043,288 @@ function finishFov(config: FovConfig, name: string, score: ReturnType<typeof emp
     </main>`
   app.querySelector<HTMLButtonElement>('#again')!.addEventListener('click', () => openFov(config, name))
   app.querySelector<HTMLButtonElement>('#done')!.addEventListener('click', renderFovList)
+}
+
+
+/* ---------------- running words ---------------- */
+
+const RW_STORE = 'speedrunner.rw.v1'
+let rwCustom: RwConfig = loadStored<RwConfig>(RW_STORE, { ...RW_DEFAULT })
+let rwTimer = 0
+
+const clearRwTimer = () => {
+  if (rwTimer) clearTimeout(rwTimer)
+  rwTimer = 0
+}
+
+function rwCard(id: string, name: string, note: string, config: RwConfig, accent: 'preset' | 'custom'): string {
+  const best = resultsForKey(rwKey(config)).reduce(
+    (b, r) => (r.score !== undefined && r.score > b ? r.score : b),
+    0,
+  )
+  return `
+    <div class="card card--${accent}" data-rw-open="${id}">
+      <div class="card__main">
+        <div class="card__head">
+          <p class="card__name">${name}</p>
+          ${accent === 'custom' ? `<button class="card__icon" data-rw-settings aria-label="Settings">${icon('sliders', 22)}</button>` : ''}
+        </div>
+        <p class="card__today">${note}</p>
+        <div class="card__badges">
+          <span class="badge">${config.rows} × ${config.cols}</span>
+          <span class="badge">from ${config.startWpm} wpm</span>
+          <span class="badge">${config.rounds} rounds</span>
+        </div>
+        ${best > 0 ? `<p class="card__today">best ${best} wpm</p>` : ''}
+      </div>
+    </div>`
+}
+
+function renderRwList(): void {
+  app.innerHTML = `
+    <div class="shell">
+      <header class="topbar topbar--back">
+        <button class="back" id="back">←</button><h1>Running words</h1>
+      </header>
+      <div class="scroll">
+        <p class="drill__note">
+          Words appear one at a time across the grid. Keep your gaze in the middle
+          rather than chasing them, and remember the <b>last</b> word of each round.
+          Answer correctly and the speed goes up; miss it and it comes back down.
+        </p>
+        <section class="group">
+          ${RW_PRESETS.map((p) => rwCard(p.id, p.name, p.note, p.config, 'preset')).join('')}
+        </section>
+        <h2 class="section">Your setup</h2>
+        <section class="group">${rwCard('custom', 'CUSTOM', 'Your own pace and length', rwCustom, 'custom')}</section>
+      </div>
+    </div>`
+
+  app.querySelector<HTMLButtonElement>('#back')!.addEventListener('click', renderTab)
+  app.querySelectorAll<HTMLElement>('[data-rw-open]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.rwOpen!
+      if (id === 'custom') return openRw(rwCustom, 'CUSTOM')
+      const found = RW_PRESETS.find((p) => p.id === id)!
+      openRw(found.config, found.name)
+    })
+  })
+  app.querySelector<HTMLElement>('[data-rw-settings]')?.addEventListener('click', (event) => {
+    event.stopPropagation()
+    renderRwSettings()
+  })
+}
+
+function renderRwSettings(): void {
+  const draft: RwConfig = { ...rwCustom }
+  const SPEEDS = [150, 200, 250, 300, 400]
+  const LENGTHS = [6, 8, 10, 12]
+  const SIZES = [3, 4, 5]
+
+  const draw = () => {
+    app.innerHTML = `
+      <div class="shell">
+        <header class="topbar topbar--back">
+          <button class="back" id="back">←</button><h1>Custom words</h1>
+        </header>
+        <div class="scroll">
+          <section class="group">
+            <div class="row row--stack">
+              <span class="row__text"><span class="row__label">Grid</span>
+                <span class="row__note">Slots the words can appear in.</span></span>
+              <span class="segmented">
+                ${SIZES.map((n) => `<button data-size="${n}" class="${draft.cols === n ? 'is-on' : ''}">${n}×${n}</button>`).join('')}
+              </span>
+            </div>
+            <div class="row row--stack">
+              <span class="row__text"><span class="row__label">Order</span>
+                <span class="row__note">Sequence fills the slots in turn. Random jumps.</span></span>
+              <span class="segmented">
+                <button data-order="sequence" class="${draft.order === 'sequence' ? 'is-on' : ''}">Sequence</button>
+                <button data-order="random" class="${draft.order === 'random' ? 'is-on' : ''}">Random</button>
+              </span>
+            </div>
+            <div class="row row--stack">
+              <span class="row__text"><span class="row__label">Starting speed</span>
+                <span class="row__note">Words per minute. It adapts as you go.</span></span>
+              <span class="segmented">
+                ${SPEEDS.map((n) => `<button data-wpm="${n}" class="${draft.startWpm === n ? 'is-on' : ''}">${n}</button>`).join('')}
+              </span>
+            </div>
+            <div class="row row--stack">
+              <span class="row__text"><span class="row__label">Words per round</span></span>
+              <span class="segmented">
+                ${LENGTHS.map((n) => `<button data-len="${n}" class="${draft.wordsPerRound === n ? 'is-on' : ''}">${n}</button>`).join('')}
+              </span>
+            </div>
+          </section>
+        </div>
+      </div>`
+
+    app.querySelector<HTMLButtonElement>('#back')!.addEventListener('click', () => {
+      rwCustom = draft
+      saveStored(RW_STORE, rwCustom)
+      renderRwList()
+    })
+    const pick = (attr: string, apply: (value: string) => void) =>
+      app.querySelectorAll<HTMLElement>(`[data-${attr}]`).forEach((b) =>
+        b.addEventListener('click', () => {
+          apply(b.dataset[attr]!)
+          draw()
+        }),
+      )
+    pick('size', (v) => {
+      draft.cols = Number(v)
+      draft.rows = Number(v)
+    })
+    pick('order', (v) => (draft.order = v as RwConfig['order']))
+    pick('wpm', (v) => (draft.startWpm = Number(v)))
+    pick('len', (v) => (draft.wordsPerRound = Number(v)))
+  }
+
+  draw()
+}
+
+function openRw(config: RwConfig, name: string): void {
+  clearRwTimer()
+  let wpm = config.startWpm
+  let roundIndex = 0
+  let bestCorrect = 0
+
+  const shell = (body: string) => `
+    <main class="screen">
+      <header class="bar">
+        <button class="bar__btn" id="quit" aria-label="Back">${icon('back', 20)}</button>
+        <span class="target target--name">${name}</span>
+        <span class="bar__right"><span class="clock" id="speed">${wpm} wpm</span></span>
+      </header>
+      ${body}
+    </main>`
+
+  const wireQuit = () =>
+    app.querySelector<HTMLButtonElement>('#quit')!.addEventListener('click', () => {
+      clearRwTimer()
+      renderRwList()
+    })
+
+  const showReady = () => {
+    app.innerHTML = shell(`
+      <div class="progress"><span class="progress__fill" id="fill"></span></div>
+      <div class="gridwrap">
+        <div class="slots" id="slots" style="--cols:${config.cols}"></div>
+      </div>
+      <button class="primary confirm" id="action">START</button>
+      <p class="hint hint--bottom">Round ${roundIndex + 1} of ${config.rounds} · hold the middle, remember the last word</p>`)
+    buildSlots()
+    wireQuit()
+    app.querySelector<HTMLButtonElement>('#action')!.addEventListener('click', runRound)
+  }
+
+  const buildSlots = () => {
+    const host = app.querySelector<HTMLDivElement>('#slots')!
+    host.innerHTML = ''
+    for (let i = 0; i < slotCount(config); i++) {
+      const slot = document.createElement('span')
+      slot.className = 'slot'
+      host.append(slot)
+    }
+  }
+
+  const runRound = () => {
+    const round = createRwRound(config)
+    const gap = intervalMs(wpm)
+    app.innerHTML = shell(`
+      <div class="progress"><span class="progress__fill" id="fill"></span></div>
+      <div class="gridwrap">
+        <div class="slots" id="slots" style="--cols:${config.cols}"></div>
+      </div>
+      <div class="confirm confirm--spacer"></div>
+      <p class="hint hint--bottom">Remember the last word</p>`)
+    buildSlots()
+    wireQuit()
+    const slots = app.querySelector<HTMLDivElement>('#slots')!
+    const fill = app.querySelector<HTMLElement>('#fill')!
+
+    let i = 0
+    const step = () => {
+      if (i > 0) (slots.children[round.slots[i - 1]] as HTMLElement).textContent = ''
+      if (i >= round.words.length) return askRecall(round)
+      const cell = slots.children[round.slots[i]] as HTMLElement
+      cell.textContent = round.words[i]
+      fill.style.width = `${((i + 1) / round.words.length) * 100}%`
+      i++
+      rwTimer = window.setTimeout(step, gap)
+    }
+    step()
+  }
+
+  const askRecall = (round: ReturnType<typeof createRwRound>) => {
+    const answer = round.words[round.words.length - 1]
+    const choices = recallChoices(round)
+    // Same skeleton as the ready and running states - progress bar, content
+    // area, action button - so only the middle changes between rounds.
+    app.innerHTML = shell(`
+      <div class="progress"><span class="progress__fill" style="width:100%"></span></div>
+      <div class="gridwrap">
+        <div class="choices">
+          ${choices.map((w) => `<button class="choice" data-word="${w}">${w}</button>`).join('')}
+        </div>
+      </div>
+      <button class="primary confirm is-static" data-word="">I DON'T KNOW</button>
+      <p class="hint hint--bottom">Which word came last?</p>`)
+    wireQuit()
+    let answered = false
+    app.querySelectorAll<HTMLElement>('[data-word]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if (answered) return
+        answered = true
+        const correct = button.dataset.word === answer
+
+        // Show what the answer was before moving on: a wrong pick goes red and
+        // the right one goes green, so a miss still teaches you the word.
+        if (!correct && button.classList.contains('choice')) button.classList.add('is-wrong')
+        app
+          .querySelectorAll<HTMLElement>('.choice')
+          .forEach((c) => c.dataset.word === answer && c.classList.add('is-right'))
+
+        if (correct) {
+          bestCorrect = Math.max(bestCorrect, wpm)
+          wpm += WPM_STEP
+        } else {
+          wpm = Math.max(WPM_FLOOR, wpm - WPM_STEP)
+        }
+        roundIndex++
+        rwTimer = window.setTimeout(() => {
+          if (roundIndex >= config.rounds) return finishRw(config, name, bestCorrect, wpm)
+          showReady()
+        }, correct ? 450 : 900)
+      })
+    })
+  }
+
+  showReady()
+}
+
+function finishRw(config: RwConfig, name: string, best: number, ended: number): void {
+  clearRwTimer()
+  saveKeyedResult(rwKey(config), { seconds: 0, errors: 0, score: best, trials: config.rounds })
+  const allTime = resultsForKey(rwKey(config)).reduce(
+    (b, r) => (r.score !== undefined && r.score > b ? r.score : b),
+    0,
+  )
+
+  app.innerHTML = `
+    <main class="screen screen--center">
+      <p class="eyebrow">${name}</p>
+      <h1 class="title">${best || '—'}</h1>
+      <p class="meta">fastest speed you answered correctly, in words per minute</p>
+      <p class="meta">${rwLabel(config)} · finished at ${ended} wpm</p>
+      <p class="meta">best ever ${allTime} wpm</p>
+      <button class="primary" id="again">AGAIN</button>
+      <button class="ghost" id="done">Done</button>
+    </main>`
+  app.querySelector<HTMLButtonElement>('#again')!.addEventListener('click', () => openRw(config, name))
+  app.querySelector<HTMLButtonElement>('#done')!.addEventListener('click', renderRwList)
 }
 
 // Space confirms, for checking it on a desktop keyboard.

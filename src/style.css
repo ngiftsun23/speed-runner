@@ -96,6 +96,14 @@ button {
   letter-spacing: -0.03em;
 }
 
+.topbar--back h1 {
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 650;
+  color: var(--ink);
+  text-shadow: none;
+}
+
 .back {
   padding: 0 6px 0 0;
   border: 0;
@@ -272,6 +280,104 @@ button {
 
 .primary.is-pressed {
   background: var(--found);
+}
+
+/* ---------------- running words ---------------- */
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  gap: 18px 14px;
+  width: 100%;
+}
+
+.slot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 2.2em;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--surface-edge);
+  font-size: clamp(1.35rem, 6.6vw, 2.1rem);
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  /* A word must not widen its slot, or the layout twitches as words change. */
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.confirm--spacer {
+  /* Holds the action button's place while a round is running. */
+  width: 100%;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  /* Six choices in two columns make three rows, on the same gaps as the slot
+     grid, so the answers sit on the same lines the words did. */
+  gap: 18px 14px;
+  width: 100%;
+}
+
+.choice {
+  /* The text is laid out exactly like a .slot - same height, same 4px above
+     the line - so a word appears where it appeared during the round. The box
+     is drawn separately below, and its size cannot move the text. */
+  position: relative;
+  /* z-index 0 makes this its own stacking context, so the box at -1 sits behind
+     the text but still in front of whatever is behind the button. */
+  z-index: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 2.2em;
+  padding-bottom: 4px;
+  border: 0;
+  background: none;
+  /* Text wears the ink token, not the accent: the box carries the affordance
+     and colour is kept for meaning, which is what the rest of the UI does. */
+  color: var(--ink);
+  font-size: clamp(1.35rem, 6.6vw, 2.1rem);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+/* The box, drawn behind the word. These insets came from the tuner: flush with
+   the text at the top and sides, extending 14px below it. Changing them cannot
+   move the word. */
+.choice::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: -14px;
+  left: 0;
+  z-index: -1;
+  border: 1px solid var(--surface-edge);
+  border-radius: 7px;
+  background: var(--surface);
+}
+
+.choice:active::before {
+  background: var(--accent);
+}
+
+.choice.is-right::before {
+  border-color: var(--found);
+  background: var(--found);
+}
+
+.choice.is-wrong::before {
+  border-color: var(--wrong);
+  background: var(--wrong);
+}
+
+.choice.is-right,
+.choice.is-wrong,
+.choice:active {
+  color: #fff;
 }
 
 /* ---------------- drill sections ---------------- */
@@ -617,6 +723,24 @@ button {
   cursor: pointer;
 }
 
+/* A segmented control with several options cannot share a line with its label
+   at phone width - it clipped the last option. Stack it instead. */
+.row--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.row--stack .segmented {
+  width: 100%;
+}
+
+.row--stack .segmented button {
+  flex: 1;
+  padding: 12px 4px;
+  text-align: center;
+}
+
 .row__text {
   display: flex;
   flex-direction: column;
@@ -947,7 +1071,7 @@ button {
 .primary {
   width: 100%;
   max-width: 520px;
-  padding: 22px 16px;
+  padding: 15px 16px;
   border: 0;
   border-radius: 10px;
   background: var(--accent);
@@ -971,7 +1095,7 @@ button {
   /* Bottom of the screen, away from the grid, so the thumb never rests
      over a cell. */
   flex: 0 0 auto;
-  min-height: 84px;
+  min-height: 58px;
 }
 
 .ghost {

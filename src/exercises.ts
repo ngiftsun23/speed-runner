@@ -34,7 +34,7 @@ export const EXERCISES: Exercise[] = [
     name: 'Running words',
     trains: 'Reading at a forced pace, without backtracking',
     icon: 'flash',
-    status: 'soon',
+    status: 'ready',
   },
   {
     id: 'columns',

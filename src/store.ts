@@ -98,20 +98,19 @@ export function saveCustomConfig(config: Config): void {
   }
 }
 
-const FOV_KEY = 'speedrunner.fov.v1'
-
-export function loadStored<T>(fallback: T): T {
+/** Per-drill custom settings. The key must be distinct per drill. */
+export function loadStored<T>(key: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(FOV_KEY)
+    const raw = localStorage.getItem(key)
     return raw ? { ...fallback, ...(JSON.parse(raw) as Partial<T>) } : fallback
   } catch {
     return fallback
   }
 }
 
-export function saveStored<T>(value: T): void {
+export function saveStored<T>(key: string, value: T): void {
   try {
-    localStorage.setItem(FOV_KEY, JSON.stringify(value))
+    localStorage.setItem(key, JSON.stringify(value))
   } catch {
     // Storage blocked: the setting still applies for this session.
   }

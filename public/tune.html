@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Choice box tuner</title>
+    <style>
+      :root {
+        --bg: #12141a;
+        --panel: #191d26;
+        --surface: #222735;
+        --surface-edge: #2f3545;
+        --ink: #e8eaf0;
+        --ink-dim: #8d94a6;
+        --accent: #4d8dff;
+        --accent-soft: #1e2b45;
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 16px 12px 40px;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'Inter Variable', Inter, system-ui, sans-serif;
+      }
+      h1 { margin: 0 0 4px; font-size: 1.1rem; }
+      p.note { margin: 0 0 18px; color: var(--ink-dim); font-size: .85rem; line-height: 1.5; }
+      h2 {
+        margin: 22px 0 10px;
+        font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+        color: var(--ink-dim);
+      }
+
+      /* Both layers share the same box so they can be lined up. */
+      .stack { position: relative; }
+      .stack .choices { position: absolute; inset: 0 0 auto 0; }
+      .stack.solo .choices { position: static; }
+      .layer-off { display: none; }
+
+      /* The grid as it looks during a round. */
+      .slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 14px; }
+      .slot {
+        display: flex; align-items: flex-end; justify-content: center;
+        min-height: 2.2em; padding-bottom: 4px;
+        border-bottom: 1px solid var(--surface-edge);
+        font-size: var(--font); line-height: 1.1;
+      }
+
+      /* Answers. The text uses the slot's metrics exactly; the box behind it is
+         a separate layer, so nothing you change about the box moves the word. */
+      .choices { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--rowGap) var(--colGap); }
+      .choice {
+        /* z-index 0 makes this its own stacking context, so the box at -1 sits
+           behind the text but still in front of the panel behind it. */
+        position: relative;
+        z-index: 0;
+        display: flex; align-items: flex-end; justify-content: center;
+        min-height: 2.2em; padding-bottom: 4px;
+        border: 0; background: none; color: var(--accent);
+        font-family: inherit; font-size: var(--font); line-height: 1.1;
+      }
+      .choice::before {
+        content: '';
+        position: absolute;
+        top: calc(var(--boxTop) * -1);
+        bottom: calc(var(--boxBottom) * -1);
+        left: calc(var(--boxSide) * -1);
+        right: calc(var(--boxSide) * -1);
+        z-index: -1;
+        border: 1px solid var(--accent);
+        border-radius: var(--radius);
+        background: var(--boxBg);
+      }
+
+      .control { margin-bottom: 14px; }
+      .control label {
+        display: flex; justify-content: space-between; gap: 10px;
+        margin-bottom: 6px; font-size: .85rem; color: var(--ink-dim);
+      }
+      .control b { color: var(--ink); font-variant-numeric: tabular-nums; }
+      input[type=range] { width: 100%; }
+      .seg { display: flex; border: 1px solid var(--surface-edge); border-radius: 8px; overflow: hidden; }
+      .seg button {
+        flex: 1; padding: 10px 4px; border: 0; background: var(--surface);
+        color: var(--ink); font: inherit; font-size: .85rem;
+      }
+      .seg button.on { background: var(--accent); color: #fff; }
+      pre {
+        margin: 0; padding: 12px; border: 1px solid var(--surface-edge); border-radius: 8px;
+        background: var(--panel); color: var(--ink-dim);
+        font-size: .78rem; line-height: 1.5; white-space: pre-wrap;
+      }
+      .panel {
+        padding: 14px 12px; border: 1px solid var(--surface-edge);
+        border-radius: 10px; background: var(--panel);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Choice box tuner</h1>
+    <p class="note">
+      The word positions are fixed — they match where words appear during a round, and
+      nothing here can move them. The sliders only change the box drawn around each word.
+      Turn a layer off to see the other on its own.
+    </p>
+
+    <h2>Layers</h2>
+    <span class="seg" id="layers">
+      <button data-layer="slots" class="on">Word grid</button>
+      <button data-layer="choices" class="on">Answer boxes</button>
+    </span>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="stack">
+        <div class="slots" id="layerSlots">
+          <span class="slot">often</span><span class="slot">grow</span><span class="slot">water</span>
+          <span class="slot">correct</span><span class="slot">fuming</span><span class="slot">month</span>
+          <span class="slot">lecture</span><span class="slot">were</span><span class="slot">green</span>
+        </div>
+        <div class="choices" id="layerChoices">
+          <button class="choice">often</button><button class="choice">grow</button>
+          <button class="choice">correct</button><button class="choice">fuming</button>
+          <button class="choice">lecture</button><button class="choice">were</button>
+        </div>
+      </div>
+    </div>
+
+    <h2>The box</h2>
+    <div class="control">
+      <label>Extends above the word <b id="vboxTop">8px</b></label>
+      <input type="range" id="boxTop" min="0" max="40" step="1" value="8" />
+    </div>
+    <div class="control">
+      <label>Extends below the word <b id="vboxBottom">8px</b></label>
+      <input type="range" id="boxBottom" min="0" max="40" step="1" value="8" />
+    </div>
+    <div class="control">
+      <label>Extends to the sides <b id="vboxSide">6px</b></label>
+      <input type="range" id="boxSide" min="0" max="30" step="1" value="6" />
+    </div>
+    <div class="control">
+      <label>Corner radius <b id="vradius">10px</b></label>
+      <input type="range" id="radius" min="0" max="28" step="1" value="10" />
+    </div>
+
+    <h2>The layout</h2>
+    <div class="control">
+      <label>Word size <b id="vfont">25px</b></label>
+      <input type="range" id="font" min="14" max="40" step="1" value="25" />
+    </div>
+    <div class="control">
+      <label>Gap between rows <b id="vrowGap">18px</b></label>
+      <input type="range" id="rowGap" min="0" max="48" step="1" value="18" />
+    </div>
+    <div class="control">
+      <label>Gap between columns <b id="vcolGap">14px</b></label>
+      <input type="range" id="colGap" min="0" max="48" step="1" value="14" />
+    </div>
+
+    <h2>Send me this</h2>
+    <pre id="out"></pre>
+
+    <script>
+      const root = document.documentElement.style
+      const KEYS = ['boxTop', 'boxBottom', 'boxSide', 'radius', 'font', 'rowGap', 'colGap']
+      const state = { boxTop: 8, boxBottom: 8, boxSide: 6, radius: 10, font: 25, rowGap: 18, colGap: 14 }
+      const layers = { slots: true, choices: true }
+
+      function apply() {
+        for (const key of KEYS) {
+          root.setProperty('--' + key, state[key] + 'px')
+          document.getElementById('v' + key).textContent = state[key] + 'px'
+        }
+        // See-through while both layers are on, so the lines underneath show.
+        root.setProperty('--boxBg', layers.slots && layers.choices ? 'rgba(77,141,255,.16)' : 'var(--accent-soft)')
+
+        document.getElementById('layerSlots').classList.toggle('layer-off', !layers.slots)
+        document.getElementById('layerChoices').classList.toggle('layer-off', !layers.choices)
+        document.querySelector('.stack').classList.toggle('solo', !layers.slots)
+
+        document.getElementById('out').textContent =
+          'box above ' + state.boxTop + 'px\n' +
+          'box below ' + state.boxBottom + 'px\n' +
+          'box sides ' + state.boxSide + 'px\n' +
+          'radius ' + state.radius + 'px\n' +
+          'word size ' + state.font + 'px\n' +
+          'row gap ' + state.rowGap + 'px\n' +
+          'column gap ' + state.colGap + 'px'
+      }
+
+      for (const key of KEYS) {
+        document.getElementById(key).addEventListener('input', (e) => {
+          state[key] = Number(e.target.value)
+          apply()
+        })
+      }
+      document.getElementById('layers').addEventListener('click', (e) => {
+        const button = e.target.closest('button')
+        if (!button) return
+        layers[button.dataset.layer] = !layers[button.dataset.layer]
+        button.classList.toggle('on', layers[button.dataset.layer])
+        apply()
+      })
+
+      apply()
+    </script>
+  </body>
+</html>

@@ -98,6 +98,19 @@ and re-wiring it.
   Schulte keys.
 - **The chart button on Schulte preset cards** opens per-table statistics; the
   same affordance does not exist for Field of vision.
-- **No git remote.** The repository exists only on this machine.
+- **Running words and Field of vision results are saved but not shown.** The
+  Stats tab only renders Schulte keys.
+- **`public/tune.html`** is a standalone layout tuner for the recall boxes,
+  served at `/tune.html`. Not linked from the app; delete it when it stops
+  earning its place.
 
-See `docs/` for the coaching protocol and the decision log.
+## Docs
+
+- `docs/coaching.md` — the training protocol the app serves: session shape,
+  progression, time bands, commands. Read this before giving training advice.
+- `docs/drills.md` — the rules of each exercise, independent of the code.
+- `docs/decisions.md` — why things are as they are.
+- `docs/reference/` — screenshots of the app this one is modelled on.
+
+These do not update themselves. Update the affected doc as part of the change
+that invalidates it, the same way you would update a test.
