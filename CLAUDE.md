@@ -1,8 +1,8 @@
 # Speed Runner
 
 A reading-speed and concentration trainer, built as an installable PWA. Schulte
-tables and Field of vision are implemented; the other exercises are listed in the
-Practice grid and marked "Not built yet".
+tables, Field of vision and Running words are implemented; the other exercises
+are listed in the Practice grid and marked "Not built yet".
 
 Plain TypeScript and Vite, no framework. There is no backend: every result lives
 in the browser's `localStorage`, on the device that produced it.
@@ -30,6 +30,8 @@ back-and-forth, and say when switching to it.
 | `src/engine.ts` | Schulte model: grids, target orders, rounds. Pure, no DOM. |
 | `src/presets.ts` | The five Schulte presets and the card badges. |
 | `src/fov.ts` | Field of vision model: field positions, trials, scoring. Pure. |
+| `src/runningWords.ts` | Running words model: slots, rounds, recall choices. Pure. |
+| `src/words.ts` | The word pool the reading drills draw from. |
 | `src/exercises.ts` | The Practice grid's list of drills and their status. |
 | `src/store.ts` | `localStorage` reads and writes; results, custom configs. |
 | `src/chart.ts` | The times chart, as an SVG string. |
@@ -83,7 +85,7 @@ and re-wiring it.
   runs an enlarged system text size that would otherwise overflow the grid.
 - **Fonts are npm packages, never a CDN.** The installed app has to render
   correctly with no network.
-- **Results keys are prefixed by drill** (`schulte/…`, `fov/…`). Keys written
+- **Results keys are prefixed by drill** (`schulte/…`, `fov/…`, `rw/…`). Keys written
   before that change have no prefix and are still read as Schulte's.
 
 ## Open
@@ -94,12 +96,9 @@ and re-wiring it.
 - **Exercise sets** — the Practice screen has no equivalent of the reference app's
   "Basic set / Advanced set". That is really the session runner: warm-up, three
   timed rounds, stop.
-- **Field of vision results are saved but not shown.** The Stats tab only renders
-  Schulte keys.
-- **The chart button on Schulte preset cards** opens per-table statistics; the
-  same affordance does not exist for Field of vision.
-- **Running words and Field of vision results are saved but not shown.** The
-  Stats tab only renders Schulte keys.
+- **Field of vision and Running words results are saved but never shown.** The
+  Stats tab only renders Schulte keys, and only Schulte preset cards have the
+  chart button that opens per-table statistics.
 - **`public/tune.html`** is a standalone layout tuner for the recall boxes,
   served at `/tune.html`. Not linked from the app; delete it when it stops
   earning its place.
