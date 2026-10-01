@@ -48,6 +48,35 @@ import {
   slotCount,
   type RwConfig,
 } from './runningWords'
+import {
+  COL_DEFAULT,
+  COL_PRESETS,
+  WPM_MAX,
+  WPM_MIN,
+  WPM_STEP as COL_WPM_STEP,
+  buildPage,
+  cellMs,
+  cellTotal,
+  colKey,
+  colLabel,
+  type ColConfig,
+} from './columns'
+import {
+  MAX_DIGITS,
+  NUM_PRESETS,
+  makeNumber,
+  nextLength,
+  numKey,
+  numLabel,
+  type NumConfig,
+} from './numbers'
+import {
+  EVEN_PRESETS,
+  buildTable,
+  evenKey,
+  evenLabel,
+  type EvenConfig,
+} from './evens'
 import { coverArt } from './art'
 import { timesChart } from './chart'
 import {
@@ -73,6 +102,8 @@ const FLASH_MS = 180
 const GRID_GAP = 3
 
 const APP_NAME = 'Speed Runner'
+/** Columns of words runs for one minute; the other drills use their own limits. */
+const ROUND_MS = 60000
 
 type Tab = 'home' | 'practice' | 'stats' | 'profile'
 
@@ -103,6 +134,8 @@ const ICONS: Record<string, string> = {
   flash: '<path d="M13 2 4 14h6l-1 8 9-12h-6z"/>',
   columns: '<rect x="3" y="4" width="4" height="16" rx="1"/><rect x="10" y="4" width="4" height="16" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/>',
   dot: '<circle cx="12" cy="12" r="3"/><path d="M3 6h5M16 6h5M3 18h5M16 18h5"/>',
+  hash: '<path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',
+  keypad: '<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="9" cy="9" r="1.2"/><circle cx="15" cy="9" r="1.2"/><circle cx="9" cy="15" r="1.2"/><circle cx="15" cy="15" r="1.2"/>',
   palette: '<circle cx="12" cy="12" r="9"/><circle cx="9" cy="9" r="1.4"/><circle cx="15" cy="9" r="1.4"/><circle cx="9" cy="15" r="1.4"/><circle cx="15" cy="15" r="1.4"/>',
 }
 
@@ -163,6 +196,9 @@ function wireTabBody(): void {
       if (id === 'schulte') renderSchulte()
       else if (id === 'field') renderFovList()
       else if (id === 'rsvp') renderRwList()
+      else if (id === 'columns') renderColList()
+      else if (id === 'numbers') renderNumList()
+      else if (id === 'even') renderEvenList()
     })
   })
   app.querySelectorAll<HTMLElement>('[data-open]').forEach((element) => {
@@ -1325,6 +1361,600 @@ function finishRw(config: RwConfig, name: string, best: number, ended: number): 
     </main>`
   app.querySelector<HTMLButtonElement>('#again')!.addEventListener('click', () => openRw(config, name))
   app.querySelector<HTMLButtonElement>('#done')!.addEventListener('click', renderRwList)
+}
+
+
+/* ---------------- columns of words ---------------- */
+
+const COL_STORE = 'speedrunner.col.v1'
+let colCustom: ColConfig = loadStored<ColConfig>(COL_STORE, { ...COL_DEFAULT })
+let colTimer = 0
+
+const clearColTimer = () => {
+  if (colTimer) clearTimeout(colTimer)
+  colTimer = 0
+}
+
+function colCard(id: string, name: string, config: ColConfig, accent: 'preset' | 'custom'): string {
+  const best = resultsForKey(colKey(config)).reduce(
+    (b, r) => (r.score !== undefined && r.score > b ? r.score : b),
+    0,
+  )
+  return `
+    <div class="card card--${accent}" data-col-open="${id}">
+      <div class="card__main">
+        <div class="card__head">
+          <p class="card__name">${name}</p>
+          ${accent === 'custom' ? `<button class="card__icon" data-col-settings aria-label="Settings">${icon('sliders', 22)}</button>` : ''}
+        </div>
+        <p class="card__today">${colLabel(config)}</p>
+        <div class="card__badges">
+          <span class="badge">${config.rows} lines</span>
+          <span class="badge">from ${config.wpm} wpm</span>
+        </div>
+        ${best > 0 ? `<p class="card__today">held ${best} wpm</p>` : ''}
+      </div>
+    </div>`
+}
+
+function renderColList(): void {
+  app.innerHTML = `
+    <div class="shell">
+      <header class="topbar topbar--back">
+        <button class="back" id="back">←</button><h1>Columns of words</h1>
+      </header>
+      <div class="scroll">
+        <p class="drill__note">
+          A band moves through the page one stop at a time. Take each highlighted group
+          in a single look and let the band pull you along — do not go back. More
+          columns means more stops per line; more words per stop means a wider group.
+        </p>
+        <section class="group">
+          ${COL_PRESETS.map((p) => colCard(p.id, p.name, p.config, 'preset')).join('')}
+        </section>
+        <h2 class="section">Your setup</h2>
+        <section class="group">${colCard('custom', 'CUSTOM', colCustom, 'custom')}</section>
+      </div>
+    </div>`
+
+  app.querySelector<HTMLButtonElement>('#back')!.addEventListener('click', renderTab)
+  app.querySelectorAll<HTMLElement>('[data-col-open]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.colOpen!
+      if (id === 'custom') return openCol(colCustom, 'CUSTOM')
+      const found = COL_PRESETS.find((p) => p.id === id)!
+      openCol(found.config, found.name)
+    })
+  })
+  app.querySelector<HTMLElement>('[data-col-settings]')?.addEventListener('click', (event) => {
+    event.stopPropagation()
+    renderColSettings()
+  })
+}
+
+function renderColSettings(): void {
+  const draft: ColConfig = { ...colCustom }
+  const COLS = [1, 2, 3]
+  const WORDS_PER = [1, 2, 3, 4]
+  const LINES = [8, 12, 16, 20]
+  const SPEEDS = [150, 200, 250, 300, 400]
+
+  const draw = () => {
+    app.innerHTML = `
+      <div class="shell">
+        <header class="topbar topbar--back">
+          <button class="back" id="back">←</button><h1>Custom columns</h1>
+        </header>
+        <div class="scroll">
+          <section class="group">
+            <div class="row row--stack">
+              <span class="row__text"><span class="row__label">Columns</span>
+                <span class="row__note">Stops per line.</span></span>
+              <span class="segmented">
+                ${COLS.map((n) => `<button data-c="${n}" class="${draft.cols === n ? 'is-on' : ''}">${n}</button>`).join('')}
+              </span>
+            </div>
+            <div class="row row--stack">
+              <span class="row__text"><span class="row__label">Words per stop</span>
+                <span class="row__note">How wide a group each look has to take.</span></span>
+              <span class="segmented">
+                ${WORDS_PER.map((n) => `<button data-w="${n}" class="${draft.wordsPerCell === n ? 'is-on' : ''}">${n}</button>`).join('')}
+              </span>
+            </div>
+            <div class="row row--stack">
+              <span class="row__text"><span class="row__label">Lines</span></span>
+              <span class="segmented">
+                ${LINES.map((n) => `<button data-r="${n}" class="${draft.rows === n ? 'is-on' : ''}">${n}</button>`).join('')}
+              </span>
+            </div>
+            <div class="row row--stack">
+              <span class="row__text"><span class="row__label">Starting speed</span>
+                <span class="row__note">Words per minute. Adjustable while running.</span></span>
+              <span class="segmented">
+                ${SPEEDS.map((n) => `<button data-s="${n}" class="${draft.wpm === n ? 'is-on' : ''}">${n}</button>`).join('')}
+              </span>
+            </div>
+          </section>
+        </div>
+      </div>`
+
+    app.querySelector<HTMLButtonElement>('#back')!.addEventListener('click', () => {
+      colCustom = draft
+      saveStored(COL_STORE, colCustom)
+      renderColList()
+    })
+    const pick = (attr: string, apply: (value: number) => void) =>
+      app.querySelectorAll<HTMLElement>(`[data-${attr}]`).forEach((b) =>
+        b.addEventListener('click', () => {
+          apply(Number(b.dataset[attr]!))
+          draw()
+        }),
+      )
+    pick('c', (v) => (draft.cols = v))
+    pick('w', (v) => (draft.wordsPerCell = v))
+    pick('r', (v) => (draft.rows = v))
+    pick('s', (v) => (draft.wpm = v))
+  }
+
+  draw()
+}
+
+function openCol(config: ColConfig, name: string): void {
+  clearColTimer()
+  const page = buildPage(config)
+  let wpm = config.wpm
+  let index = -1
+  let running = false
+
+  app.innerHTML = `
+    <main class="screen">
+      <header class="bar">
+        <button class="bar__btn" id="quit" aria-label="Back">${icon('back', 20)}</button>
+        <span class="target target--name">${name}</span>
+        <span class="bar__right"><span class="clock" id="speed">${wpm} wpm</span></span>
+      </header>
+      <div class="progress"><span class="progress__fill" id="fill"></span></div>
+      <div class="gridwrap gridwrap--page">
+        <div class="page" id="page" style="--cols:${config.cols}">
+          ${page.map((cell) => `<span class="pcell">${cell}</span>`).join('')}
+        </div>
+      </div>
+      <div class="pacer">
+        <button class="pacer__btn" id="slower" aria-label="Slower">◀◀</button>
+        <button class="primary pacer__go" id="action">START</button>
+        <button class="pacer__btn" id="faster" aria-label="Faster">▶▶</button>
+      </div>
+      <p class="hint hint--bottom">One look per highlighted group. Never go back.</p>
+    </main>`
+
+  const cells = app.querySelectorAll<HTMLElement>('.pcell')
+  const speedOut = app.querySelector<HTMLElement>('#speed')!
+  const fill = app.querySelector<HTMLElement>('#fill')!
+  const action = app.querySelector<HTMLButtonElement>('#action')!
+  let deadline = 0
+  let wordsRead = 0
+
+  const refill = () => {
+    const fresh = buildPage(config)
+    cells.forEach((cell, i) => (cell.textContent = fresh[i]))
+  }
+
+  const step = () => {
+    if (index >= 0) cells[index].classList.remove('is-on')
+    if (performance.now() >= deadline) return finishCol(config, name, wpm, wordsRead)
+    index++
+    // A page lasts seconds, not a minute, so it is refilled and the run
+    // continues until the time is up.
+    if (index >= cells.length) {
+      refill()
+      index = 0
+    }
+    cells[index].classList.add('is-on')
+    wordsRead += config.wordsPerCell
+    const left = Math.max(0, deadline - performance.now())
+    fill.style.width = `${100 - (left / ROUND_MS) * 100}%`
+    speedOut.textContent = `${wpm} wpm · ${Math.ceil(left / 1000)}s`
+    colTimer = window.setTimeout(step, cellMs({ ...config, wpm }))
+  }
+
+  const setSpeed = (delta: number) => {
+    wpm = Math.min(WPM_MAX, Math.max(WPM_MIN, wpm + delta))
+    if (!running) speedOut.textContent = `${wpm} wpm`
+  }
+
+  app.querySelector<HTMLButtonElement>('#slower')!.addEventListener('click', () => setSpeed(-COL_WPM_STEP))
+  app.querySelector<HTMLButtonElement>('#faster')!.addEventListener('click', () => setSpeed(COL_WPM_STEP))
+  app.querySelector<HTMLButtonElement>('#quit')!.addEventListener('click', () => {
+    clearColTimer()
+    renderColList()
+  })
+  action.addEventListener('click', () => {
+    if (running) return
+    running = true
+    action.textContent = 'RUNNING'
+    action.classList.add('is-static')
+    action.disabled = true
+    deadline = performance.now() + ROUND_MS
+    step()
+  })
+}
+
+function finishCol(config: ColConfig, name: string, endedAt: number, wordsRead: number): void {
+  clearColTimer()
+  // A minute of reading, so words read is words per minute by definition.
+  saveKeyedResult(colKey(config), {
+    seconds: 60,
+    errors: 0,
+    score: wordsRead,
+    trials: cellTotal(config),
+  })
+  const best = resultsForKey(colKey(config)).reduce(
+    (b, r) => (r.score !== undefined && r.score > b ? r.score : b),
+    0,
+  )
+
+  app.innerHTML = `
+    <main class="screen screen--center">
+      <p class="eyebrow">${name}</p>
+      <h1 class="title">${wordsRead}</h1>
+      <p class="meta">words read in one minute · finished at ${endedAt} wpm</p>
+      <p class="meta">${colLabel(config)}</p>
+      <p class="meta">best ${best} wpm</p>
+      <button class="primary" id="again">ANOTHER MINUTE</button>
+      <button class="ghost" id="done">Done</button>
+    </main>`
+  app
+    .querySelector<HTMLButtonElement>('#again')!
+    .addEventListener('click', () => openCol({ ...config, wpm: endedAt }, name))
+  app.querySelector<HTMLButtonElement>('#done')!.addEventListener('click', renderColList)
+}
+
+
+/* ---------------- remember numbers ---------------- */
+
+let numTimer = 0
+
+const clearNumTimer = () => {
+  if (numTimer) clearTimeout(numTimer)
+  numTimer = 0
+}
+
+function numCard(id: string, name: string, note: string, config: NumConfig): string {
+  const best = resultsForKey(numKey(config)).reduce(
+    (b, r) => (r.score !== undefined && r.score > b ? r.score : b),
+    0,
+  )
+  return `
+    <div class="card card--preset" data-num-open="${id}">
+      <div class="card__main">
+        <div class="card__head"><p class="card__name">${name}</p></div>
+        <p class="card__today">${note}</p>
+        <div class="card__badges">
+          <span class="badge">${config.flashMs}ms</span>
+          <span class="badge">from ${config.startDigits} digits</span>
+          <span class="badge">${config.trials} numbers</span>
+        </div>
+        ${best > 0 ? `<p class="card__today">longest recalled: ${best} digits</p>` : ''}
+      </div>
+    </div>`
+}
+
+function renderNumList(): void {
+  app.innerHTML = `
+    <div class="shell">
+      <header class="topbar topbar--back">
+        <button class="back" id="back">←</button><h1>Remember numbers</h1>
+      </header>
+      <div class="scroll">
+        <p class="drill__note">
+          A number appears for a moment, then you key it back. Get it right and the next
+          one is a digit longer; get it wrong and it drops back. Most people settle
+          somewhere between four and seven digits.
+        </p>
+        <section class="group">
+          ${NUM_PRESETS.map((p) => numCard(p.id, p.name, p.note, p.config)).join('')}
+        </section>
+      </div>
+    </div>`
+
+  app.querySelector<HTMLButtonElement>('#back')!.addEventListener('click', renderTab)
+  app.querySelectorAll<HTMLElement>('[data-num-open]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const found = NUM_PRESETS.find((p) => p.id === el.dataset.numOpen!)!
+      openNum(found.config, found.name)
+    })
+  })
+}
+
+function openNum(config: NumConfig, name: string): void {
+  clearNumTimer()
+  let digits = config.startDigits
+  let trial = 0
+  let correctCount = 0
+  let longest = 0
+  let answer = ''
+  let typed = ''
+  let accepting = false
+
+  const draw = (state: 'ready' | 'flash' | 'entry') => {
+    const slots = Array.from({ length: digits }, (_, i) => {
+      const shown = state === 'flash' ? answer[i] : typed[i] ?? ''
+      return `<span class="nslot${shown ? ' is-filled' : ''}">${shown || '–'}</span>`
+    }).join('')
+
+    app.innerHTML = `
+      <main class="screen">
+        <header class="bar">
+          <button class="bar__btn" id="quit" aria-label="Back">${icon('back', 20)}</button>
+          <span class="target target--name">${digits} digits</span>
+          <span class="bar__right"><span class="clock">${trial}/${config.trials}</span></span>
+        </header>
+        <div class="progress"><span class="progress__fill" style="width:${(trial / config.trials) * 100}%"></span></div>
+        <div class="gridwrap"><div class="nslots" id="slots">${slots}</div></div>
+        ${
+          state === 'ready'
+            ? `<button class="primary confirm" id="action">START</button>
+               <p class="hint hint--bottom">Look at the middle. The number will flash.</p>`
+            : `<div class="keypad" id="keypad">
+                 ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button class="key" data-key="${n}">${n}</button>`).join('')}
+                 <button class="key key--wide" data-key="0">0</button>
+                 <button class="key" data-key="del">⌫</button>
+               </div>`
+        }
+      </main>`
+
+    app.querySelector<HTMLButtonElement>('#quit')!.addEventListener('click', () => {
+      clearNumTimer()
+      renderNumList()
+    })
+    app.querySelector<HTMLButtonElement>('#action')?.addEventListener('click', flash)
+    app.querySelector<HTMLElement>('#keypad')?.addEventListener('click', (event) => {
+      const key = (event.target as HTMLElement).closest<HTMLElement>('[data-key]')
+      if (!key || !accepting) return
+      press(key.dataset.key!)
+    })
+  }
+
+  const flash = () => {
+    answer = makeNumber(digits)
+    typed = ''
+    accepting = false
+    draw('flash')
+    numTimer = window.setTimeout(() => {
+      accepting = true
+      draw('entry')
+    }, config.flashMs)
+  }
+
+  const press = (key: string) => {
+    if (key === 'del') {
+      typed = typed.slice(0, -1)
+      draw('entry')
+      return
+    }
+    if (typed.length >= digits) return
+    typed += key
+    draw('entry')
+    // Checked as soon as the last slot is filled: no submit button to hunt for.
+    if (typed.length === digits) {
+      accepting = false
+      numTimer = window.setTimeout(judge, 150)
+    }
+  }
+
+  const judge = () => {
+    const right = typed === answer
+    if (right) {
+      correctCount++
+      longest = Math.max(longest, digits)
+    }
+    const slots = app.querySelectorAll<HTMLElement>('.nslot')
+    slots.forEach((slot, i) => {
+      slot.classList.add(typed[i] === answer[i] ? 'is-right' : 'is-wrong')
+      if (!right) slot.textContent = answer[i]
+    })
+    trial++
+    digits = nextLength(digits, right)
+    numTimer = window.setTimeout(
+      () => (trial >= config.trials ? finishNum(config, name, longest, correctCount) : flash()),
+      right ? 600 : 1400,
+    )
+  }
+
+  draw('ready')
+}
+
+function finishNum(config: NumConfig, name: string, longest: number, correct: number): void {
+  clearNumTimer()
+  saveKeyedResult(numKey(config), {
+    seconds: 0,
+    errors: config.trials - correct,
+    score: longest,
+    trials: config.trials,
+  })
+  const best = resultsForKey(numKey(config)).reduce(
+    (b, r) => (r.score !== undefined && r.score > b ? r.score : b),
+    0,
+  )
+
+  app.innerHTML = `
+    <main class="screen screen--center">
+      <p class="eyebrow">${name}</p>
+      <h1 class="title">${longest || '—'}</h1>
+      <p class="meta">longest number recalled, in digits</p>
+      <p class="meta">${correct} of ${config.trials} correct · ${numLabel(config)}</p>
+      <p class="meta">best ${best} digits${best >= MAX_DIGITS ? ' · at the ceiling' : ''}</p>
+      <button class="primary" id="again">AGAIN</button>
+      <button class="ghost" id="done">Done</button>
+    </main>`
+  app.querySelector<HTMLButtonElement>('#again')!.addEventListener('click', () => openNum(config, name))
+  app.querySelector<HTMLButtonElement>('#done')!.addEventListener('click', renderNumList)
+}
+
+
+/* ---------------- even numbers ---------------- */
+
+let evenTimer = 0
+
+function evenCard(id: string, name: string, note: string, config: EvenConfig): string {
+  const done = resultsForKey(evenKey(config))
+  const best = done.reduce<number | null>(
+    (b, r) => (b === null || r.seconds < b ? r.seconds : b),
+    null,
+  )
+  return `
+    <div class="card card--preset" data-even-open="${id}">
+      <div class="card__main">
+        <div class="card__head"><p class="card__name">${name}</p></div>
+        <p class="card__today">${note}</p>
+        <div class="card__badges">
+          <span class="badge">${config.rows} × ${config.cols}</span>
+          <span class="badge">${config.evens} evens</span>
+          <span class="badge">${config.tables} tables</span>
+        </div>
+        ${best === null ? '' : `<p class="card__today">best ${fmt(best)}s</p>`}
+      </div>
+    </div>`
+}
+
+function renderEvenList(): void {
+  app.innerHTML = `
+    <div class="shell">
+      <header class="topbar topbar--back">
+        <button class="back" id="back">←</button><h1>Even numbers</h1>
+      </header>
+      <div class="scroll">
+        <p class="drill__note">
+          Every table hides a few even numbers among the odd ones. Find and tap them all,
+          then the next table appears. Scan by rows or by columns, whichever suits you,
+          and stay relaxed — rushing costs more in wrong taps than it gains.
+        </p>
+        <section class="group">
+          ${EVEN_PRESETS.map((p) => evenCard(p.id, p.name, p.note, p.config)).join('')}
+        </section>
+      </div>
+    </div>`
+
+  app.querySelector<HTMLButtonElement>('#back')!.addEventListener('click', renderTab)
+  app.querySelectorAll<HTMLElement>('[data-even-open]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const found = EVEN_PRESETS.find((p) => p.id === el.dataset.evenOpen!)!
+      openEven(found.config, found.name)
+    })
+  })
+}
+
+function openEven(config: EvenConfig, name: string): void {
+  if (evenTimer) cancelAnimationFrame(evenTimer)
+  evenTimer = 0
+  let tableIndex = 0
+  let found = 0
+  let errors = 0
+  let startedAt = 0
+  let table = buildTable(config)
+  let running = false
+
+  app.innerHTML = `
+    <main class="screen">
+      <header class="bar">
+        <button class="bar__btn" id="quit" aria-label="Back">${icon('back', 20)}</button>
+        <span class="target target--name" id="left">${config.evens} to find</span>
+        <span class="bar__right"><span class="clock" id="clock">0.0</span></span>
+      </header>
+      <div class="progress"><span class="progress__fill" id="fill"></span></div>
+      <div class="gridwrap gridwrap--page">
+        <div class="etable" id="table" style="--cols:${config.cols}"></div>
+      </div>
+      <button class="primary confirm" id="action">START</button>
+      <p class="hint hint--bottom">Tap every even number. Table 1 of ${config.tables}.</p>
+    </main>`
+
+  const host = app.querySelector<HTMLDivElement>('#table')!
+  const left = app.querySelector<HTMLElement>('#left')!
+  const clock = app.querySelector<HTMLElement>('#clock')!
+  const fill = app.querySelector<HTMLElement>('#fill')!
+  const hint = app.querySelector<HTMLElement>('.hint--bottom')!
+  const action = app.querySelector<HTMLButtonElement>('#action')!
+
+  const paint = () => {
+    host.innerHTML = table.values
+      .map((value, i) => `<button class="ecell" data-i="${i}">${value}</button>`)
+      .join('')
+  }
+
+  const tick = () => {
+    if (!running) return
+    clock.textContent = fmt((performance.now() - startedAt) / 1000)
+    evenTimer = requestAnimationFrame(tick)
+  }
+
+  host.addEventListener('click', (event) => {
+    if (!running) return
+    const cell = (event.target as HTMLElement).closest<HTMLElement>('.ecell')
+    if (!cell || cell.classList.contains('is-found')) return
+    const index = Number(cell.dataset.i)
+    if (table.targets.has(index)) {
+      cell.classList.add('is-found')
+      found++
+      left.textContent = `${config.evens - found} to find`
+      if (found === config.evens) nextTable()
+    } else {
+      errors++
+      cell.classList.add('is-wrong')
+      setTimeout(() => cell.classList.remove('is-wrong'), 200)
+    }
+  })
+
+  const nextTable = () => {
+    tableIndex++
+    if (tableIndex >= config.tables) {
+      running = false
+      if (evenTimer) cancelAnimationFrame(evenTimer)
+      return finishEven(config, name, (performance.now() - startedAt) / 1000, errors)
+    }
+    found = 0
+    table = buildTable(config)
+    paint()
+    left.textContent = `${config.evens} to find`
+    fill.style.width = `${(tableIndex / config.tables) * 100}%`
+    hint.textContent = `Table ${tableIndex + 1} of ${config.tables}.`
+  }
+
+  action.addEventListener('click', () => {
+    if (running) return
+    running = true
+    startedAt = performance.now()
+    action.hidden = true
+    tick()
+  })
+
+  app.querySelector<HTMLButtonElement>('#quit')!.addEventListener('click', () => {
+    running = false
+    if (evenTimer) cancelAnimationFrame(evenTimer)
+    renderEvenList()
+  })
+
+  paint()
+}
+
+function finishEven(config: EvenConfig, name: string, seconds: number, errors: number): void {
+  saveKeyedResult(evenKey(config), { seconds, errors, trials: config.tables })
+  const all = resultsForKey(evenKey(config))
+  const best = all.reduce((b, r) => (r.seconds < b ? r.seconds : b), seconds)
+
+  app.innerHTML = `
+    <main class="screen screen--center">
+      <p class="eyebrow">${name}</p>
+      <h1 class="title">${fmt(seconds)}s</h1>
+      <p class="meta">for ${config.tables} tables · ${fmt(seconds / config.tables)}s each</p>
+      ${errors > 0 ? `<p class="meta">${errors} wrong tap${errors === 1 ? '' : 's'}</p>` : '<p class="meta">no wrong taps</p>'}
+      <p class="meta">${evenLabel(config)}</p>
+      <p class="meta">best ${fmt(best)}s</p>
+      <button class="primary" id="again">AGAIN</button>
+      <button class="ghost" id="done">Done</button>
+    </main>`
+  app.querySelector<HTMLButtonElement>('#again')!.addEventListener('click', () => openEven(config, name))
+  app.querySelector<HTMLButtonElement>('#done')!.addEventListener('click', renderEvenList)
 }
 
 // Space confirms, for checking it on a desktop keyboard.

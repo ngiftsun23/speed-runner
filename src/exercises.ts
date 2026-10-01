@@ -41,7 +41,21 @@ export const EXERCISES: Exercise[] = [
     name: 'Columns of words',
     trains: 'Taking a line in two or three fixations',
     icon: 'columns',
-    status: 'soon',
+    status: 'ready',
+  },
+  {
+    id: 'numbers',
+    name: 'Remember numbers',
+    trains: 'Holding a glimpsed number in mind',
+    icon: 'keypad',
+    status: 'ready',
+  },
+  {
+    id: 'even',
+    name: 'Even numbers',
+    trains: 'Scanning a table without losing your place',
+    icon: 'hash',
+    status: 'ready',
   },
   {
     id: 'greendot',

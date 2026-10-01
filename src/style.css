@@ -380,6 +380,160 @@ button {
   color: #fff;
 }
 
+/* ---------------- columns of words ---------------- */
+
+.gridwrap--page {
+  align-items: center;
+  overflow-y: auto;
+}
+
+.page {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  gap: 2px 18px;
+  width: 100%;
+}
+
+.pcell {
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: clamp(0.95rem, 4.2vw, 1.3rem);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The pacer band. Bright enough to pull the eye without hiding the words. */
+.pcell.is-on {
+  background: var(--warm);
+  color: #14100a;
+}
+
+.pacer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pacer__go {
+  flex: 1;
+}
+
+.pacer__btn {
+  flex: 0 0 auto;
+  width: 64px;
+  min-height: 58px;
+  border: 1px solid var(--surface-edge);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+}
+
+.pacer__btn:active {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+/* ---------------- remember numbers ---------------- */
+
+.nslots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.nslot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 1 auto;
+  min-width: 2ch;
+  padding: 10px 8px;
+  border: 1px solid var(--surface-edge);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-size: clamp(1.4rem, 7vw, 2.4rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.nslot.is-filled {
+  color: var(--ink);
+}
+
+.nslot.is-right {
+  border-color: var(--found);
+  color: var(--found);
+}
+
+.nslot.is-wrong {
+  border-color: var(--wrong);
+  color: var(--wrong);
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.key {
+  min-height: 54px;
+  border: 1px solid var(--surface-edge);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.key:active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.key--wide {
+  grid-column: span 2;
+}
+
+/* ---------------- even numbers ---------------- */
+
+.etable {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  gap: 4px;
+  width: 100%;
+}
+
+.ecell {
+  padding: 8px 2px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font-size: clamp(0.9rem, 4.2vw, 1.25rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.ecell.is-found {
+  background: var(--found);
+  color: #fff;
+}
+
+.ecell.is-wrong {
+  background: var(--wrong);
+  color: #fff;
+}
+
 /* ---------------- drill sections ---------------- */
 
 .drill__head {
