@@ -74,17 +74,15 @@ button {
 
 .topbar h1 {
   margin: 0;
-  /* Cartoon title-card lettering for the app name only; the rest of the UI
-     stays neo-grotesque. */
-  font-family: 'Luckiest Guy', 'Inter Variable', Inter, sans-serif;
-  font-size: 1.55rem;
-  font-weight: 400;
-  letter-spacing: 0.02em;
+  /* Display lettering for the app name only; the rest of the UI stays
+     neo-grotesque. */
+  font-family: 'Syne Variable', Syne, 'Inter Variable', Inter, sans-serif;
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.06em;
+  text-transform: uppercase;
   line-height: 1.1;
   color: var(--accent);
-  text-shadow:
-    2px 2px 0 var(--bg),
-    3px 3px 0 rgb(0 0 0 / 45%);
 }
 
 /* Large numerals get tighter tracking, the grotesque display convention. */
@@ -1259,4 +1257,414 @@ button {
   color: var(--ink-dim);
   font-size: 0.95rem;
   text-decoration: underline;
+}
+
+/* ============================================================
+   Neo-brutalist skin
+   Appended deliberately: it overrides the tokens and adds the
+   borders and hard shadows on top of the layout above, so it can
+   be removed in one piece without unpicking anything.
+   ============================================================ */
+
+:root {
+  --bg: #f2eee2;
+  --panel: #fffdf7;
+  --panel-raised: #fffdf7;
+  --surface: #fffdf7;
+  --surface-edge: #15130f;
+  --edge: #15130f;
+  --ink: #15130f;
+  --ink-dim: #5c574c;
+  --accent: #2f5bff;
+  --accent-soft: #cfd9ff;
+  --custom: #8b5cf6;
+  --custom-soft: #e4d9ff;
+  --warm: #ffcf3d;
+  --found: #27c06b;
+  --wrong: #ff4d4a;
+  --dot: #ff3b30;
+  --hard: 4px 4px 0 var(--edge);
+  --hard-sm: 2px 2px 0 var(--edge);
+  color-scheme: light;
+}
+
+body {
+  font-weight: 500;
+}
+
+/* --- surfaces get a hard edge and a hard shadow --- */
+
+.card,
+.tile,
+.row,
+.stat,
+.hero,
+.chart,
+.nslot,
+.key,
+.chip,
+.bar__btn,
+.pacer__btn,
+.segmented,
+.stat__value {
+  border: 2px solid var(--edge);
+  border-radius: 6px;
+  box-shadow: var(--hard-sm);
+}
+
+.card,
+.tile,
+.hero {
+  box-shadow: var(--hard);
+}
+
+.card {
+  border-left-width: 8px;
+}
+
+.card--flat {
+  border-left-color: var(--edge);
+}
+
+/* --- buttons press down into their own shadow --- */
+
+.primary,
+.choice::before,
+.card__start {
+  border: 2px solid var(--edge);
+  border-radius: 6px;
+  box-shadow: var(--hard);
+}
+
+.primary:active,
+.key:active,
+.chip:active,
+.tile:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--hard-sm);
+}
+
+.primary {
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.primary.is-static {
+  background: var(--panel);
+  color: var(--ink-dim);
+}
+
+.ghost {
+  font-weight: 600;
+}
+
+/* --- headings and labels get weight, the app name keeps its shadow --- */
+
+.topbar {
+  border-bottom: 2px solid var(--edge);
+}
+
+.topbar h1 {
+  color: var(--accent);
+  text-shadow: none;
+}
+
+.topbar--back h1 {
+  color: var(--ink);
+  text-shadow: none;
+  font-weight: 800;
+}
+
+.section,
+.card__name,
+.tile__name,
+.hero__label,
+.stat__label,
+.drill__name,
+.lede {
+  font-weight: 800;
+}
+
+.badge {
+  border: 2px solid var(--edge);
+  border-radius: 999px;
+  background: var(--warm);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* --- navigation --- */
+
+.nav {
+  border-top: 2px solid var(--edge);
+}
+
+.nav__item.is-active .nav__icon {
+  border: 2px solid var(--edge);
+  background: var(--warm);
+  color: var(--ink);
+}
+
+/* --- drill surfaces --- */
+
+.cell {
+  border: 2px solid var(--edge);
+  border-radius: 4px;
+  background: var(--panel);
+  font-weight: 600;
+}
+
+.cell--hole,
+.cell--quiet {
+  border-color: transparent;
+  background: none;
+}
+
+.cell--colored {
+  background: hsl(var(--hue) 85% 82%);
+  border-color: var(--edge);
+}
+
+.cell--field {
+  background: var(--warm);
+  border-color: var(--edge);
+}
+
+.cell--found {
+  background: var(--found);
+  color: #fff;
+}
+
+.cell--wrong {
+  background: var(--wrong);
+  color: #fff;
+}
+
+.ecell {
+  border: 2px solid transparent;
+  font-weight: 600;
+}
+
+.ecell.is-found,
+.ecell.is-wrong {
+  border-color: var(--edge);
+  border-radius: 6px;
+}
+
+.pcell.is-on {
+  border-radius: 0;
+  background: var(--warm);
+  color: var(--ink);
+}
+
+.slot {
+  border-bottom: 2px solid var(--edge);
+}
+
+.choice.is-right::before {
+  background: var(--found);
+}
+
+.choice.is-wrong::before {
+  background: var(--wrong);
+}
+
+.choice.is-right,
+.choice.is-wrong {
+  color: #fff;
+}
+
+/* --- controls --- */
+
+.segmented {
+  overflow: hidden;
+}
+
+.segmented button {
+  font-weight: 600;
+}
+
+.segmented button.is-on {
+  background: var(--accent);
+  color: #fff;
+}
+
+.switch {
+  border: 2px solid var(--edge);
+  background: var(--panel);
+}
+
+.switch::after {
+  background: var(--ink-dim);
+}
+
+.switch.is-on {
+  background: var(--warm);
+}
+
+.switch.is-on::after {
+  background: var(--edge);
+}
+
+.stepper button {
+  border: 2px solid var(--edge);
+  border-radius: 6px;
+  box-shadow: var(--hard-sm);
+  font-weight: 700;
+}
+
+.progress {
+  border: 2px solid var(--edge);
+  border-radius: 999px;
+  background: var(--panel);
+}
+
+.hero__value {
+  border-width: 3px;
+  border-color: var(--edge);
+  background: var(--warm);
+  color: var(--ink);
+  font-weight: 800;
+}
+
+/* --- chart reads on paper now --- */
+
+.ch-grid {
+  stroke: #cfc8b6;
+}
+
+.ch-line {
+  stroke-width: 3;
+}
+
+.ch-dot {
+  stroke: var(--edge);
+  stroke-width: 2;
+}
+
+.cover {
+  border: 2px solid var(--edge);
+  box-shadow: var(--hard);
+}
+
+
+/* --- one type scale -----------------------------------------------------
+   Six body sizes and six heading sizes had accumulated across the screens.
+   Everything below collapses to four steps. The wordmark is deliberately
+   absent: .topbar h1 keeps its own face and size. */
+
+/* Overlines: small, heavy, widely tracked, uppercase. */
+.section,
+.eyebrow,
+.stat__label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Names of things: cards, tiles, settings rows. */
+.card__name,
+.card__name--small,
+.tile__name,
+.row__label,
+.hero__label {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+/* Screen-level headings. */
+.drill__name,
+.lede,
+.topbar--back h1 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Body copy and anything explanatory. */
+.body,
+.meta,
+.hint,
+.note,
+.drill__note,
+.card__today,
+.footnote,
+.bullets {
+  font-size: 0.88rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.5;
+}
+
+/* The smallest step: badges and the notes under a name. */
+.badge,
+.tile__note,
+.row__note,
+.nav__label,
+.ch-caption,
+.ch-readout {
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+
+/* --- trial: yellow as the accent ---------------------------------------
+   Yellow carries the actions instead of blue. Text on yellow must be ink,
+   not white, and anything that was a thin blue line becomes black, since
+   yellow has almost no contrast against the paper. */
+
+:root {
+  --accent: #ffcf3d;
+  --accent-soft: #fff1c2;
+}
+
+.primary,
+.nav__item.is-active .nav__icon,
+.segmented button.is-on,
+.card__start,
+.choice {
+  color: var(--ink);
+}
+
+/* The wordmark cannot be yellow on cream and stay readable. */
+.topbar h1 {
+  color: var(--ink);
+}
+
+/* Thin marks go black rather than disappearing. */
+.ch-line,
+.ch-dot {
+  stroke: var(--edge);
+}
+
+.ch-dot {
+  fill: var(--accent);
+}
+
+.hero__value,
+.stat {
+  border-color: var(--edge);
+}
+
+.hero__value {
+  color: var(--ink);
+}
+
+.slot,
+.choice::before {
+  border-color: var(--edge);
+}
+
+.cell--center-target {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.dot {
+  background: var(--dot);
 }

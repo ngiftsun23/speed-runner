@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Accent colours</title>
+    <link rel="stylesheet" href="/node_modules/@fontsource-variable/syne/index.css" />
+    <link rel="stylesheet" href="/node_modules/@fontsource-variable/inter/index.css" />
+    <style>
+      :root {
+        --bg: #f2eee2;
+        --panel: #fffdf7;
+        --edge: #15130f;
+        --ink: #15130f;
+        --dim: #5c574c;
+        --accent: #2f5bff;
+        --on-accent: #fff;
+        --warm: #ffcf3d;
+        --hard: 4px 4px 0 var(--edge);
+        --hard-sm: 2px 2px 0 var(--edge);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 16px 12px 48px;
+        background: var(--bg); color: var(--ink);
+        font-family: 'Inter Variable', Inter, system-ui, sans-serif; font-weight: 500;
+      }
+      h1 { margin: 0 0 4px; font-family: 'Syne Variable', sans-serif; font-size: 1.05rem; }
+      p.note { margin: 0 0 16px; color: var(--dim); font-size: .85rem; line-height: 1.5; }
+      h3 {
+        margin: 24px 0 10px; font-family: 'Syne Variable', sans-serif;
+        font-size: .72rem; font-weight: 800; letter-spacing: .14em;
+        text-transform: uppercase; color: var(--dim);
+      }
+
+      /* a slice of the real app */
+      .bar {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px 14px; border: 2px solid var(--edge);
+        background: var(--panel); box-shadow: var(--hard-sm);
+      }
+      .bar span {
+        font-family: 'Syne Variable', sans-serif; font-weight: 800;
+        font-size: 1.3rem; letter-spacing: -.06em; text-transform: uppercase;
+        color: var(--accent);
+      }
+      .card {
+        margin-top: 12px; padding: 14px;
+        border: 2px solid var(--edge); border-left: 8px solid var(--accent);
+        border-radius: 6px; background: var(--panel); box-shadow: var(--hard);
+      }
+      .card b { font-family: 'Syne Variable', sans-serif; font-size: 1rem; }
+      .badges { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+      .badge {
+        padding: 3px 9px; border: 2px solid var(--edge); border-radius: 999px;
+        background: var(--warm); font-size: .76rem; font-weight: 700;
+      }
+      .btn {
+        display: block; width: 100%; margin-top: 10px; padding: 14px;
+        border: 2px solid var(--edge); border-radius: 6px;
+        background: var(--accent); color: var(--on-accent);
+        font-family: 'Syne Variable', sans-serif; font-weight: 800;
+        font-size: .95rem; letter-spacing: .06em; box-shadow: var(--hard);
+      }
+      .grid {
+        display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px;
+        margin-top: 12px;
+      }
+      .cell {
+        aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+        border: 2px solid var(--edge); border-radius: 4px;
+        background: var(--panel); font-weight: 600; font-variant-numeric: tabular-nums;
+      }
+      .cell.t { background: var(--accent); color: var(--on-accent); }
+      .cell.y { background: var(--warm); }
+      .nav {
+        display: flex; margin-top: 12px; border: 2px solid var(--edge);
+        background: var(--panel);
+      }
+      .nav i {
+        flex: 1; padding: 10px 0; text-align: center; font-style: normal;
+        font-size: .76rem; font-weight: 700;
+      }
+      .nav i.on { background: var(--accent); color: var(--on-accent); }
+
+      .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+      .sw {
+        width: 54px; height: 54px; border: 2px solid var(--edge);
+        border-radius: 6px; box-shadow: var(--hard-sm);
+      }
+      .sw.on { outline: 3px solid var(--edge); outline-offset: 3px; }
+      .name { margin-top: 10px; font-size: .85rem; color: var(--dim); }
+      .name b { color: var(--ink); }
+    </style>
+  </head>
+  <body>
+    <h1>Accent colours</h1>
+    <p class="note">
+      A slice of the real app. Tap a colour to see it carry the actions. Yellow keeps
+      its own job on the badges and the drill highlight, as it does now.
+    </p>
+
+    <div class="bar"><span>Speed Runner</span></div>
+    <div class="card">
+      <b>STANDARD TABLE</b>
+      <div class="badges"><span class="badge">5 × 5</span><span class="badge">1→5</span><span class="badge">eyes</span></div>
+      <button class="btn">START</button>
+    </div>
+    <div class="grid">
+      <span class="cell">7</span><span class="cell">3</span><span class="cell t">12</span>
+      <span class="cell">9</span><span class="cell y">5</span>
+      <span class="cell">1</span><span class="cell">8</span><span class="cell">4</span>
+      <span class="cell">6</span><span class="cell">2</span>
+    </div>
+    <div class="nav"><i>Home</i><i class="on">Practice</i><i>Stats</i><i>You</i></div>
+
+    <h3>Accent</h3>
+    <div class="swatches" id="swatches"></div>
+    <p class="name" id="name">Current: <b>Electric blue</b></p>
+
+    <script>
+      const OPTIONS = [
+        ['Electric blue', '#2f5bff', '#fff'],
+        ['Deep navy', '#1b2a6b', '#fff'],
+        ['Hot pink', '#ff4fa3', '#15130f'],
+        ['Lime', '#b8f000', '#15130f'],
+        ['Orange', '#ff6a13', '#fff'],
+        ['Violet', '#8b5cf6', '#fff'],
+        ['Teal', '#009e8e', '#fff'],
+        ['Tomato', '#ff4d4a', '#fff'],
+        ['Black', '#15130f', '#fff'],
+        ['Yellow', '#ffcf3d', '#15130f'],
+      ]
+      const root = document.documentElement.style
+      const host = document.getElementById('swatches')
+
+      OPTIONS.forEach(([label, hex], i) => {
+        const b = document.createElement('button')
+        b.className = 'sw' + (i === 0 ? ' on' : '')
+        b.style.background = hex
+        b.dataset.i = String(i)
+        b.title = label
+        host.append(b)
+      })
+
+      host.addEventListener('click', (e) => {
+        const b = e.target.closest('.sw')
+        if (!b) return
+        const [label, hex, on] = OPTIONS[Number(b.dataset.i)]
+        root.setProperty('--accent', hex)
+        root.setProperty('--on-accent', on)
+        document.querySelectorAll('.sw').forEach((s) => s.classList.toggle('on', s === b))
+        document.getElementById('name').innerHTML = 'Current: <b>' + label + '</b>'
+      })
+    </script>
+  </body>
+</html>

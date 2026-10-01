@@ -99,9 +99,14 @@ and re-wiring it.
 - **Field of vision and Running words results are saved but never shown.** The
   Stats tab only renders Schulte keys, and only Schulte preset cards have the
   chart button that opens per-table statistics.
-- **`public/tune.html`** is a standalone layout tuner for the recall boxes,
-  served at `/tune.html`. Not linked from the app; delete it when it stops
-  earning its place.
+- **Design tools live in `public/`** and are served alongside the app, but are
+  linked from nowhere in it. They exist because describing a visual change in
+  prose went badly several times, and handing over sliders went well:
+  - `/tune.html` — box and text metrics for the Running words recall screen
+  - `/logo.html` — nine wordmark treatments and eight colours
+  - `/palette.html` — a slice of the real app under ten accent colours
+  Keep them. They cost about 30 KB in the build and save a conversation each
+  time the look changes.
 
 ## Docs
 

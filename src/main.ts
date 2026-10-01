@@ -1,5 +1,5 @@
 import '@fontsource-variable/inter'
-import '@fontsource/luckiest-guy'
+import '@fontsource-variable/syne'
 import './style.css'
 import {
   centerIndex,

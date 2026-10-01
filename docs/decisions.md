@@ -84,3 +84,33 @@ green and red of right and wrong.
 Both faces install via npm and are precached by the service worker. A CDN would
 leave the installed app falling back to a system font whenever it is offline,
 which is most of the time.
+
+## Neo-brutalist skin, as an appended block
+
+The dark, restrained theme was replaced on request with a neo-brutalist one:
+cream paper, 2px near-black borders, hard offset shadows with no blur, flat
+saturated colour, buttons that shift into their own shadow when pressed.
+
+It is appended at the end of `style.css` as a clearly marked block that
+overrides the tokens and adds the borders, rather than being woven through the
+rules above it. That is deliberate: it can be removed in one piece.
+
+The cost, accepted knowingly: the style only works on a light ground, so the
+low-glare dark screen is gone, and the drills are stared at closely.
+
+## The display face is the wordmark's alone
+
+The app name uses a display face — currently Syne, after trying a cartoon face
+and Archivo Black. An attempt to extend that face to headings, buttons and card
+names in the name of consistency was rejected outright. Consistency here means
+one text face everywhere with the wordmark as the single exception.
+
+What was genuinely inconsistent was the type *scale*: six body sizes and six
+heading sizes had accumulated across the screens. That was collapsed to four
+steps, all in Inter.
+
+## Yellow stays
+
+An attempt to give blue and yellow separate jobs — blue for action, yellow only
+for drill highlights — was reverted. Flat yellow is one of the signatures of the
+style, and stripping it back to two uses made the app look less like itself.

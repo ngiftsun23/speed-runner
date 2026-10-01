@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Wordmark options</title>
+    <link rel="stylesheet" href="/node_modules/@fontsource-variable/syne/index.css" />
+    <link rel="stylesheet" href="/node_modules/@fontsource-variable/inter/index.css" />
+    <style>
+      :root {
+        --bg: #f2eee2;
+        --panel: #fffdf7;
+        --edge: #15130f;
+        --ink: #15130f;
+        --dim: #5c574c;
+        --blue: #2f5bff;
+        --yellow: #ffcf3d;
+        --violet: #8b5cf6;
+        --green: #27c06b;
+        --red: #ff4d4a;
+        --mark: var(--blue);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 16px 12px 48px;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'Inter Variable', Inter, system-ui, sans-serif;
+        font-weight: 500;
+      }
+      h1 { margin: 0 0 4px; font-family: 'Syne Variable', sans-serif; font-size: 1.05rem; }
+      p.note { margin: 0 0 18px; color: var(--dim); font-size: .85rem; line-height: 1.5; }
+      h3 {
+        margin: 26px 0 10px; font-size: .72rem; letter-spacing: .14em;
+        text-transform: uppercase; color: var(--dim);
+        font-family: 'Syne Variable', sans-serif; font-weight: 800;
+      }
+
+      /* Each option is shown inside a mock-up of the real top bar. */
+      .bar {
+        display: flex; align-items: center; gap: 10px;
+        margin-bottom: 12px; padding: 12px 14px;
+        border: 2px solid var(--edge); border-radius: 6px;
+        background: var(--panel); box-shadow: 4px 4px 0 var(--edge);
+      }
+      .mark {
+        flex: 1;
+        font-family: 'Syne Variable', sans-serif;
+        font-weight: 800;
+        font-size: 1.3rem;
+        letter-spacing: -0.06em;
+        line-height: 1.15;
+        text-transform: uppercase;
+      }
+      .tag {
+        flex: 0 0 auto; padding: 3px 9px;
+        border: 2px solid var(--edge); border-radius: 999px;
+        background: var(--yellow);
+        font-size: .68rem; font-weight: 700;
+      }
+
+      /* 1 plain */
+      .o1 .mark { color: var(--mark); }
+      /* 2 ink */
+      .o2 .mark { color: var(--ink); }
+      /* 3 knockout block */
+      .o3 .mark {
+        display: inline-block; flex: 0 1 auto;
+        padding: 4px 10px; border: 2px solid var(--edge);
+        background: var(--mark); color: #fff;
+      }
+      /* 4 yellow block, ink text */
+      .o4 .mark {
+        display: inline-block; flex: 0 1 auto;
+        padding: 4px 10px; border: 2px solid var(--edge);
+        background: var(--yellow); color: var(--ink);
+      }
+      /* 5 two tone */
+      .o5 .mark { color: var(--ink); }
+      .o5 .mark b { color: var(--mark); font-weight: inherit; }
+      /* 6 hard shadow */
+      .o6 .mark { color: var(--mark); text-shadow: 3px 3px 0 var(--edge); }
+      /* 7 stacked */
+      .o7 .mark { font-size: 1.05rem; line-height: 1; color: var(--ink); }
+      .o7 .mark b { display: block; color: var(--mark); font-weight: inherit; }
+      /* 8 underlined */
+      .o8 .mark {
+        display: inline-block; flex: 0 1 auto;
+        color: var(--ink); border-bottom: 5px solid var(--mark);
+      }
+      /* 9 outlined */
+      .o9 .mark {
+        color: var(--panel);
+        -webkit-text-stroke: 2px var(--edge);
+        text-stroke: 2px var(--edge);
+      }
+
+      .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+      .sw {
+        width: 52px; height: 52px;
+        border: 2px solid var(--edge); border-radius: 6px;
+        box-shadow: 2px 2px 0 var(--edge);
+      }
+      .sw.on { outline: 3px solid var(--edge); outline-offset: 3px; }
+      .control { margin: 16px 0; }
+      .control label {
+        display: flex; justify-content: space-between;
+        margin-bottom: 6px; font-size: .85rem; color: var(--dim);
+      }
+      .control b { color: var(--ink); font-variant-numeric: tabular-nums; }
+      input[type=range] { width: 100%; }
+    </style>
+  </head>
+  <body>
+    <h1>Wordmark options</h1>
+    <p class="note">
+      All nine are Syne, the face you picked. They differ in treatment and colour.
+      Change the colour below and every option updates. Tell me a number and a colour.
+    </p>
+
+    <div class="bar o1"><span class="mark">Speed Runner</span><span class="tag">1</span></div>
+    <div class="bar o2"><span class="mark">Speed Runner</span><span class="tag">2</span></div>
+    <div class="bar o3"><span class="mark">Speed Runner</span><span class="tag">3</span></div>
+    <div class="bar o4"><span class="mark">Speed Runner</span><span class="tag">4</span></div>
+    <div class="bar o5"><span class="mark">Speed <b>Runner</b></span><span class="tag">5</span></div>
+    <div class="bar o6"><span class="mark">Speed Runner</span><span class="tag">6</span></div>
+    <div class="bar o7"><span class="mark">Speed<b>Runner</b></span><span class="tag">7</span></div>
+    <div class="bar o8"><span class="mark">Speed Runner</span><span class="tag">8</span></div>
+    <div class="bar o9"><span class="mark">Speed Runner</span><span class="tag">9</span></div>
+
+    <h3>Colour</h3>
+    <div class="swatches" id="swatches">
+      <button class="sw on" data-c="blue" style="background:#2f5bff"></button>
+      <button class="sw" data-c="ink" style="background:#15130f"></button>
+      <button class="sw" data-c="red" style="background:#ff4d4a"></button>
+      <button class="sw" data-c="green" style="background:#27c06b"></button>
+      <button class="sw" data-c="violet" style="background:#8b5cf6"></button>
+      <button class="sw" data-c="orange" style="background:#ff7a1a"></button>
+      <button class="sw" data-c="teal" style="background:#009e8e"></button>
+      <button class="sw" data-c="pink" style="background:#ff4fa3"></button>
+    </div>
+
+    <h3>Size and tracking</h3>
+    <div class="control">
+      <label>Size <b id="vsize">1.30rem</b></label>
+      <input type="range" id="size" min="100" max="200" step="5" value="130" />
+    </div>
+    <div class="control">
+      <label>Tracking <b id="vtrack">-0.060em</b></label>
+      <input type="range" id="track" min="-90" max="40" step="5" value="-60" />
+    </div>
+
+    <h3>What they are</h3>
+    <p class="note">
+      1 plain colour &middot; 2 plain ink &middot; 3 knockout on a colour block &middot;
+      4 ink on a yellow block &middot; 5 two-tone &middot; 6 hard shadow &middot;
+      7 stacked on two lines &middot; 8 thick underline &middot; 9 outlined, hollow.
+    </p>
+
+    <script>
+      const COLOURS = {
+        blue: '#2f5bff', ink: '#15130f', red: '#ff4d4a', green: '#27c06b',
+        violet: '#8b5cf6', orange: '#ff7a1a', teal: '#009e8e', pink: '#ff4fa3',
+      }
+      const root = document.documentElement.style
+      const state = { colour: 'blue', size: 130, track: -60 }
+
+      function apply() {
+        root.setProperty('--mark', COLOURS[state.colour])
+        root.setProperty('--markSize', state.size / 100 + 'rem')
+        document.querySelectorAll('.mark').forEach((m) => {
+          m.style.fontSize = state.size / 100 + 'rem'
+          m.style.letterSpacing = state.track / 1000 + 'em'
+        })
+        document.getElementById('vsize').textContent = (state.size / 100).toFixed(2) + 'rem'
+        document.getElementById('vtrack').textContent = (state.track / 1000).toFixed(3) + 'em'
+      }
+
+      document.getElementById('swatches').addEventListener('click', (e) => {
+        const button = e.target.closest('.sw')
+        if (!button) return
+        state.colour = button.dataset.c
+        document.querySelectorAll('.sw').forEach((b) => b.classList.toggle('on', b === button))
+        apply()
+      })
+      for (const id of ['size', 'track']) {
+        document.getElementById(id).addEventListener('input', (e) => {
+          state[id] = Number(e.target.value)
+          apply()
+        })
+      }
+
+      apply()
+    </script>
+  </body>
+</html>
